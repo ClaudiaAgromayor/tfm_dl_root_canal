@@ -1,60 +1,30 @@
-# Pulpy3D
+# 1_Data_Validation
 
-This code is inspired from the ToothFairy Challenge (MICCAI 2023) and the source code provided in AImageLab [alveolar_canal](https://github.com/AImageLab-zip/alveolar_canal)
+Estudio y validación de datos del dataset **Pulpy3D** (CBCT dental):
 
-The seeding model in Pulpy3D-Seed can be accessed using this [link](https://github.com/mahmoudgamal0/Pulpy3D-Seed)
+- **Calidad del ground truth** de Pulpy3D: máscaras vacías, coherencia entre `gt_pulp_mandible` y `gt_instance`, molares 36/46.
+- **Segmentación manual (3D Slicer) vs ground truth**: DICE y HD95 del diente completo, de la zona de canales radiculares y del nervio alveolar inferior (IAN).
 
-# Pulp and IAN Segmentation Framework
-Pulp and IAN Segmentation Training Framework for 3D CBCT Scans. The framework offers the segmentation tasks through various set of models
+El mapa completo (qué hace cada script, dónde guarda sus resultados y qué problemas se han corregido) está en **[ORGANIZACION.md](ORGANIZACION.md)**.
 
-* Separate Network for Segmenting either the Pulp or IAN
-* Single Semantic Network for Segmenting both the Pulp and IAN
-* Multi-Headed Network with a Common Backbone for Segmenting both the Pulp and IAN
+## Uso rápido
 
-## Hardware Setup
-| Component | Specification             |
-| --------- | ------------------------- |
-| CPU       | Intel i7 13700K - 24 core |
-| GPU       | Nvidia 4090-RTX 24GB      |
-| RAM       | 32 GB DDR4                |
-| SSD       | 1TB M2                    |
+Desde esta carpeta, con el entorno `.venv` (ya tiene todo instalado):
 
-
-## Installation
 ```
-# Create python virtual environment
-virtualenv venv -p $(which python3)
-
-# Activate virtual environment
-source venv/local/bin/activate
-
-# Install requirements
-pip install -r requirements.txt
+.venv\Scripts\python.exe analysis/canales/canales_por_capa.py
+.venv\Scripts\python.exe analysis/ian/plot_ian_hd95.py P48
 ```
 
-## Training
-```
-python main.py --config configs/segmentation.yml
-```
+Los resultados salen en `results/`, con la misma estructura de carpetas que `analysis/`.
 
-## Dataset
-You can access the Pulpy3D dataset using this [link](https://drive.google.com/drive/folders/1M5iU1urLOp1rSxKOm7WCzodAKcZrqT5O?usp=sharing)
+## Datos
 
-The dataset is organized in the following manner
-```md
-.
-├── datasets/
-│   └── Pulpy3D/
-│       ├── P1/
-│       │   ├── data.nii.gz                # CBCT scan 
-│       │   ├── gt_pulp.nii.gz             # Semantic Segmentation of Pulp (lower/upper)
-│       │   ├── gt_pulp_mandible.nii.gz    # Semantic Segmentation of Pulp (lower only)
-│       │   ├── gt_instance.nii.gz         # Instance Segmentation of Pulp
-│       │   ├── gt_ian.nii.gz              # IAN Segmentation
-│       │   └── gt_instance_ian.nii.gz     # Pulp and IAN Instance Segmentation
-│       ├── P2/
-│       │   └── ...
-│       ├── ...
-│       └── splits.json                    # Split file of train, test and val
-└── dataset.json                           # Meta data of class labels and mapping
-```
+- `datasets/Pulpy3D/`: 393 pacientes de Pulpy3D (`data.nii.gz` + `gt_*.nii.gz`). Descarga: [enlace](https://drive.google.com/drive/folders/1M5iU1urLOp1rSxKOm7WCzodAKcZrqT5O?usp=sharing).
+- `datasets/Pulpy3D_excluidos/`: los 30 pacientes quitados por tener el GT vacío.
+- `datasets/P459_3DSlicer_prueba/`: primera segmentación manual de prueba (P459).
+- Segmentaciones manuales de 3D Slicer (33 pacientes): en `../2_UNet/datasets/Segmentaciones 3DSlicer/`.
+
+## Proyectos relacionados
+
+- `../2_UNet`: entrenamiento de redes de segmentación (UNet, Attention UNet...). Contiene el framework de entrenamiento que antes estaba aquí, basado en el ToothFairy Challenge (MICCAI 2023) y en [alveolar_canal](https://github.com/AImageLab-zip/alveolar_canal) de AImageLab.

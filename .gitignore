@@ -160,6 +160,8 @@ cython_debug/
 #.idea/
 
 datasets/Pulpy3D
+datasets/Pulpy3D_excluidos
+datasets/P459_3DSlicer_prueba
 wandb/
 results/
 checkpoints/
