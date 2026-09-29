@@ -1,0 +1,25 @@
+# Datos: no van a git (pesan GB). Se copian aparte a la máquina de entrenamiento.
+datasets/
+
+# Entorno virtual
+.venv/
+venv/
+
+# Salidas de entrenamiento
+results/*
+!results/.keep
+checkpoints/*
+!checkpoints/.keep
+wandb/
+*.pth
+*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Editor / sistema
+.vscode/
+.DS_Store
+Thumbs.db

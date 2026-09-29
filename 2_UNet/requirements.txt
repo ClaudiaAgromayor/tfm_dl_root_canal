@@ -1,0 +1,23 @@
+# Dependencias de 2_UNet (Python 3.11-3.13)
+#
+# torch NO está aquí porque se instala distinto según la máquina:
+#   - Ordenador con GPU NVIDIA (para entrenar):
+#       pip install torch --index-url https://download.pytorch.org/whl/cu126
+#   - Este portátil (sin NVIDIA, solo para programar y probar el código en CPU):
+#       pip install torch --index-url https://download.pytorch.org/whl/cpu
+# y después:
+#   pip install -r requirements.txt
+
+torchio        # carga de volúmenes, parches y augmentations
+medpy          # HD95 en eval.py
+munch          # acceso config.a.b a los .yml
+pyyaml
+tqdm
+wandb          # registro de entrenamientos (por defecto offline)
+numpy
+scipy
+nibabel        # .nii.gz
+pynrrd         # .nrrd (segmentaciones de 3D Slicer)
+SimpleITK
+matplotlib
+pandas

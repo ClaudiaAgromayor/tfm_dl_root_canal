@@ -1,30 +1,28 @@
-# 1_Data_Validation
+# TFM: Segmentación automática y caracterización geométrica tridimensional de conductos radiculares en molares mediante Deep Learning para el apoyo a la planificación endodóntica
 
-Estudio y validación de datos del dataset **Pulpy3D** (CBCT dental):
+Trabajo realizado en la Beca IIT (ICAI, Universidad Pontificia Comillas).
 
-- **Calidad del ground truth** de Pulpy3D: máscaras vacías, coherencia entre `gt_pulp_mandible` y `gt_instance`, molares 36/46.
-- **Segmentación manual (3D Slicer) vs ground truth**: DICE y HD95 del diente completo, de la zona de canales radiculares y del nervio alveolar inferior (IAN).
+> En GitHub solo están `1_Data_Validation/` y `2_UNet/` (el código). Los datos, papers, notas de reuniones e informes se quedan en local (ver `.gitignore`).
 
-El mapa completo (qué hace cada script, dónde guarda sus resultados y qué problemas se han corregido) está en **[ORGANIZACION.md](ORGANIZACION.md)**.
+| Carpeta | Qué hay |
+| --- | --- |
+| `00_Papers/` | Artículos de referencia (ver índice abajo) |
+| `01_Reuniones_y_notas/` | Notas de reuniones `p0`…`p8` en orden y bocetos a mano |
+| `02_Informes_y_presentaciones/` | BRILLA (V2, V3), presentaciones del TFM y del pipeline microCT |
+| `1_Data_Validation/` | Proyecto 1: validación del dataset Pulpy3D (393 pacientes buenos + 30 excluidos) y segmentación manual vs GT. Ver su `ORGANIZACION.md` |
+| `2_UNet/` | Proyecto 2: entrenamiento de redes (UNet, Attention UNet...) + segmentaciones de 3D Slicer |
 
-## Uso rápido
+## Índice de papers (`00_Papers/`)
 
-Desde esta carpeta, con el entorno `.venv` (ya tiene todo instalado):
-
-```
-.venv\Scripts\python.exe analysis/canales/canales_por_capa.py
-.venv\Scripts\python.exe analysis/ian/plot_ian_hd95.py P48
-```
-
-Los resultados salen en `results/`, con la misma estructura de carpetas que `analysis/`.
-
-## Datos
-
-- `datasets/Pulpy3D/`: 393 pacientes de Pulpy3D (`data.nii.gz` + `gt_*.nii.gz`). Descarga: [enlace](https://drive.google.com/drive/folders/1M5iU1urLOp1rSxKOm7WCzodAKcZrqT5O?usp=sharing).
-- `datasets/Pulpy3D_excluidos/`: los 30 pacientes quitados por tener el GT vacío.
-- `datasets/P459_3DSlicer_prueba/`: primera segmentación manual de prueba (P459).
-- Segmentaciones manuales de 3D Slicer (33 pacientes): en `../2_UNet/datasets/Segmentaciones 3DSlicer/`.
-
-## Proyectos relacionados
-
-- `../2_UNet`: entrenamiento de redes de segmentación (UNet, Attention UNet...). Contiene el framework de entrenamiento que antes estaba aquí, basado en el ToothFairy Challenge (MICCAI 2023) y en [alveolar_canal](https://github.com/AImageLab-zip/alveolar_canal) de AImageLab.
+| Fichero | Título | Nombre original |
+| --- | --- | --- |
+| `Gamal_Pulpy3D_segmentacion_pulpa_canales_IAN.pdf` | Automatic Mandibular Semantic Segmentation of Teeth Pulp Cavity and Root Canals, and Inferior Alveolar Nerve on Pulpy3D Dataset | `1419_paper.pdf` |
+| `Cipriano_2022_Mandibular_Canal_dataset_CBCT.pdf` | Deep Segmentation of the Mandibular Canal: A New 3D Annotated Dataset of CBCT Volumes | (igual) |
+| `2025_Cross-Frequency_segmentacion_canales_primer_molar.pdf` | Cross-Frequency Collaborative Training Network and Dataset for Semi-supervised First Molar Root Canal Segmentation | `2504.11856v1.pdf` |
+| `Milletari_2016_V-Net.pdf` | V-Net: Fully Convolutional Neural Networks for Volumetric Medical Image Segmentation | `1606.04797v1.pdf` |
+| `Lin_2017_Feature_Pyramid_Networks.pdf` | Feature Pyramid Networks for Object Detection | `1612.03144v2.pdf` |
+| `2022_Open-Full-Jaw_dataset_FEM.pdf` | Open-Full-Jaw: An open-access dataset and pipeline for finite element models of human jaw | `2209.07576v1.pdf` |
+| `Elgarba_2025_IA_implantes_virtuales.pdf` | Clinical Feasibility of AI-Driven Automated Virtual Dental Implant Placement | `CID-27-0.pdf` |
+| `Meto_2025_Review_CBCT_IA_RA_RV_dental.pdf` | The Integration of CBCT, AI, AR and VR in Dental Diagnostics, Surgical Planning, and Education: A Narrative Review | `applsci-15-06308.pdf` |
+| `Gao_2026_BMC_segmentacion_canales_radiculares_CBCT.pdf` | Gao et al., BMC Oral Health 26:691 (2026): segmentación de canales radiculares en CBCT | `s12903-026-07918-2.pdf` |
+| `Niane_Informe_practicas_Bigue.pdf` | Internship report: automatizar la detección de las dimensiones del canal radicular del primer molar | `rapport de stage.pdf` |
