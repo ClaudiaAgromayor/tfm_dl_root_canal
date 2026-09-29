@@ -1,6 +1,20 @@
 # TFM: Segmentación automática y caracterización geométrica tridimensional de conductos radiculares en molares mediante Deep Learning para el apoyo a la planificación endodóntica
 
-Trabajo realizado en la Beca IIT (ICAI, Universidad Pontificia Comillas).
+Trabajo Fin de Máster realizado en la Beca IIT (ICAI, Universidad Pontificia Comillas).
+
+## Descripción
+
+La anatomía de los conductos radiculares constituye uno de los principales factores que condicionan el éxito de los tratamientos endodónticos. La identificación precisa de la morfología interna del diente y la estimación de parámetros geométricos como el diámetro, la curvatura, la longitud o la sección transversal pueden proporcionar información de gran valor para la selección de instrumental y estrategias de tratamiento por parte del especialista.
+
+Este Trabajo Fin de Máster propone el desarrollo de una metodología basada en inteligencia artificial para la segmentación automática de conductos radiculares en molares a partir de imágenes de tomografía computarizada de haz cónico (CBCT). Utilizando aprendizaje profundo, se abordará un flujo de trabajo compuesto por tres etapas:
+
+1. Localización y extracción automática del diente.
+2. Segmentación tridimensional de los conductos radiculares.
+3. Obtención de una reconstrucción 3D detallada de la anatomía interna.
+
+Posteriormente, se calcularán métricas geométricas relevantes para los modelos 3D generados.
+
+## Estructura
 
 > En GitHub solo están `1_Data_Validation/` y `2_UNet/` (el código). Los datos, papers, notas de reuniones e informes se quedan en local (ver `.gitignore`).
 
