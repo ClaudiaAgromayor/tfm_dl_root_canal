@@ -165,3 +165,5 @@ datasets/P459_3DSlicer_prueba
 wandb/
 results/
 checkpoints/
+datasets/MicroCT
+datasets/CBCT_75um
