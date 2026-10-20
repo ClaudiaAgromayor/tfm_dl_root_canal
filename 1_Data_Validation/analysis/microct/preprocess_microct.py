@@ -87,28 +87,64 @@ def largest_component(mask: np.ndarray) -> np.ndarray:
     return lab == (1 + int(np.argmax(sizes)))
 
 
+def remove_specks(cavity: np.ndarray, voxel_mm: float, min_piece_mm3: float) -> np.ndarray:
+    """Quita las motas de ruido: piezas 3D de menos de min_piece_mm3 (huecos de 1-10 vóxeles).
+
+    Hay que hacerlo ANTES de unir en z: si no, las motas hacen de puente y pegan al conducto
+    cosas que no lo son (rayas de caries).
+    """
+    pl, pn = ndi.label(cavity)
+    if pn == 0:
+        return cavity
+    ok = np.bincount(pl.ravel(), minlength=pn + 1) * voxel_mm ** 3 >= min_piece_mm3
+    ok[0] = False
+    return ok[pl]
+
+
 def canal_mask(norm: np.ndarray, voxel_mm: float, thr: float = 0.5, min_mm3: float = 0.05,
-               min_len_mm: float = 1.5):
+               min_len_mm: float = 1.5, gap_mm: float = 0.13, min_piece_mm3: float = 0.005,
+               min_thick_mm: float = 0.05):
     """Canal = hueco encerrado por el diente en los cortes axiales.
 
-    Se descartan los huecos pequeños (< min_mm3) y los cortos a lo largo de z (< min_len_mm):
-    un conducto es un tubo largo, mientras que los poros y la caries de la corona son bolsas
-    cortas. Devuelve (máscara uint8, diente bool, lista de componentes conservados).
+    1. Se quitan las motas de ruido (remove_specks).
+    2. Se unen los trozos separados por menos de gap_mm en z. A resolución fina el conducto puede
+       quedar sin encerrar en un corte suelto y partirse en trozos; la unión se usa solo para
+       decidir qué se conserva (la máscara no se modifica).
+    3. Se descarta cada grupo unido que sea pequeño (< min_mm3), corto en z (< min_len_mm: poros
+       y bolsas de la corona) o delgado: radio inscrito (distancia a la pared) en el percentil
+       90 menor que min_thick_mm. Un conducto es un tubo de radio >= ~0.07 mm y se afina hacia el
+       ápice, pero eso lo mide el grupo entero, no cada trozo; el borde de una caries son rayas
+       de 1-2 vóxeles. El grosor está pensado para vóxel <= 32 µm (a 64 µm una raya de 1 vóxel
+       ya mide 0.064 mm).
+    Devuelve (máscara uint8, diente bool, componentes conservados, grupos descartados).
     """
     tooth = largest_component(norm > thr)
     filled = np.stack([ndi.binary_fill_holes(s) for s in tooth])      # corte a corte (eje z)
-    cavity = filled & ~tooth
-    lab, n = ndi.label(cavity)
+    cavity = remove_specks(filled & ~tooth, voxel_mm, min_piece_mm3)
+    g = int(round(gap_mm / voxel_mm))
+    # holgura en z: dilatación solo para unir trozos; el largo se mide sin la holgura añadida
+    joined = ndi.binary_dilation(cavity, structure=np.ones((2 * g + 1, 1, 1), bool)) if g > 0 else cavity
+    lab, n = ndi.label(joined)
     if n == 0:
-        return np.zeros_like(cavity, np.uint8), tooth, []
+        return np.zeros_like(cavity, np.uint8), tooth, [], []
     vol_mm3 = ndi.sum(cavity, lab, range(1, n + 1)) * voxel_mm ** 3
     boxes = ndi.find_objects(lab)
-    len_mm = np.array([(b[0].stop - b[0].start) * voxel_mm for b in boxes])
-    ok = (vol_mm3 >= min_mm3) & (len_mm >= min_len_mm)
-    keep = np.isin(lab, 1 + np.flatnonzero(ok))
-    comps = [{"volumen_mm3": round(float(vol_mm3[i]), 3), "largo_z_mm": round(float(len_mm[i]), 2)}
-             for i in np.flatnonzero(ok)]
-    return keep.astype(np.uint8), tooth, comps
+    len_mm = np.array([(b[0].stop - b[0].start - 2 * g) * voxel_mm for b in boxes])
+    comps, dropped, ok = [], [], np.zeros(n, bool)
+    for i in range(n):
+        if vol_mm3[i] < min_mm3 or len_mm[i] < min_len_mm:
+            continue                      # poros, motas sueltas y bolsas cortas: no se listan
+        m = np.pad((lab[boxes[i]] == i + 1) & cavity[boxes[i]], 1)
+        r90 = float(np.percentile(ndi.distance_transform_edt(m)[m] * voxel_mm, 90))
+        row = {"volumen_mm3": round(float(vol_mm3[i]), 3), "largo_z_mm": round(float(len_mm[i]), 2),
+               "radio_p90_mm": round(r90, 3), "z_vox": [boxes[i][0].start, boxes[i][0].stop - 1]}
+        if r90 < min_thick_mm:
+            dropped.append(row)
+        else:
+            ok[i] = True
+            comps.append(row)
+    keep = np.isin(lab, 1 + np.flatnonzero(ok)) & cavity
+    return keep.astype(np.uint8), tooth, comps, dropped
 
 
 # ------------------------------------------------------------------------------- QC
@@ -151,13 +187,15 @@ def qc_sections(norm, canal, out: Path):
 
 # ------------------------------------------------------------------------------ main
 def process(folder: Path, out_root: Path, downsample: int, thr: float, min_mm3: float,
-            min_len_mm: float):
+            min_len_mm: float, gap_mm: float = 0.13, min_piece_mm3: float = 0.005,
+            min_thick_mm: float = 0.05):
     vol, voxel = open_volume(folder)
     vol_ds = downsample_mean(vol, downsample) if downsample > 1 else np.asarray(vol, np.float32)
     vox = voxel * downsample
     anchors = normalization_anchors(vol_ds)
     norm = normalize(vol_ds, anchors)
-    canal, tooth, comps = canal_mask(norm, vox, thr, min_mm3, min_len_mm)
+    canal, tooth, comps, dropped = canal_mask(norm, vox, thr, min_mm3, min_len_mm, gap_mm,
+                                              min_piece_mm3, min_thick_mm)
 
     n = len(comps)
     out = out_root / folder.name
@@ -168,7 +206,11 @@ def process(folder: Path, out_root: Path, downsample: int, thr: float, min_mm3: 
             "anclas": anchors, "umbral_normalizado": thr,
             "volumen_diente_mm3": float(tooth.sum() * vox ** 3),
             "volumen_canal_mm3": float(canal.sum() * vox ** 3),
-            "componentes_canal": n, "componentes": comps}
+            "componentes_canal": n, "componentes": comps,
+            "descartados_por_delgados": dropped,
+            "parametros": {"downsample": downsample, "thr": thr, "min_mm3": min_mm3,
+                           "min_len_mm": min_len_mm, "gap_mm": gap_mm,
+                           "min_piece_mm3": min_piece_mm3, "min_thick_mm": min_thick_mm}}
     (out / "info.json").write_text(json.dumps(info, indent=2))
     qc_figure(norm, canal, out / "qc.png")
     qc_sections(norm, canal, out / "qc_sagital_coronal.png")
@@ -184,7 +226,14 @@ if __name__ == "__main__":
     ap.add_argument("--min-mm3", type=float, default=0.05, help="volumen mínimo de un hueco")
     ap.add_argument("--min-len-mm", type=float, default=1.5,
                     help="largo mínimo en z: descarta poros y caries de la corona")
+    ap.add_argument("--gap-mm", type=float, default=0.13,
+                    help="trozos de canal separados por menos de esto en z se miden como uno solo")
+    ap.add_argument("--min-piece-mm3", type=float, default=0.005,
+                    help="quita piezas sueltas de canal más pequeñas que esto (motas de ruido)")
+    ap.add_argument("--min-thick-mm", type=float, default=0.05,
+                    help="quita piezas finas (rayas de caries): radio inscrito p90 menor que esto")
     ap.add_argument("--out", type=Path, default=Path("results/microct"))
     a = ap.parse_args()
     for f in (sorted(p for p in a.path.iterdir() if p.is_dir()) if a.all else [a.path]):
-        process(f, a.out, a.downsample, a.thr, a.min_mm3, a.min_len_mm)
+        process(f, a.out, a.downsample, a.thr, a.min_mm3, a.min_len_mm, a.gap_mm, a.min_piece_mm3,
+                a.min_thick_mm)
