@@ -1,5 +1,19 @@
 # 1_Data_Validation
 
+## Estado actual del proyecto
+
+El proyecto **ya no usa los datos de Pulpy3D**. Ahora trabaja con µCT de dientes extraídos y con un CBCT real a 75 µm:
+
+- **`analysis/microct/`**: normalización de los µCT (Nikon XT, 16 µm) y extracción del canal por umbral. Es lo que se usa ahora. Ejemplo, desde la raíz del repositorio:
+  `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35 --downsample 4 --out 1_Data_Validation/results/microct`
+- **`datasets/MicroCT/`** y **`datasets/CBCT_75um/`**: los datos (no se suben a GitHub; ver el README principal).
+
+Lo que viene a continuación en este README (Pulpy3D, `.venv`, 393 pacientes) es **análisis anterior, conservado solo como referencia**.
+
+---
+
+## Análisis anterior (legado): validación de Pulpy3D
+
 Estudio y validación de datos del dataset **Pulpy3D** (CBCT dental):
 
 - **Calidad del ground truth** de Pulpy3D: máscaras vacías, coherencia entre `gt_pulp_mandible` y `gt_instance`, molares 36/46.

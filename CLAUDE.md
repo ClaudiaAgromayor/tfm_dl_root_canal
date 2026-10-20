@@ -14,8 +14,8 @@ No se usan Pulpy3D ni los datos de Fer: **descartados**. Se parte de µCT de die
 5. Medir sobre la segmentación: línea central + transformada de distancia (el diámetro de referencia sale del µCT por geometría, no hace falta una segunda red).
 
 ## Datos (nunca se suben a GitHub; carpetas en `.gitignore`)
-- `1_Data_Validation/datasets/MicroCT/Diente_35`, `Diente_51`, `Diente_52`: Nikon XT, **vóxel 16 µm isotrópico**, `.raw` uint16 con orden (z, y, x); dimensiones en el `.xtekVolume`. Pesan ~2,4–2,9 GB. Los números son de muestra (no se sabe si son códigos FDI); parecen molares de dos raíces con varios conductos. Del diente 58 solo hay proyecciones, sin volumen.
-- `1_Data_Validation/datasets/CBCT_75um/Isa_caso01`: CBCT real, 555×667×688, vóxel 0,075 mm, NRRD, más `Segmentation.seg.nrrd` hecha a mano por Isa (46 mm³, 15 componentes). Datos de paciente: no compartir.
+- `1_Data_Validation/datasets/MicroCT/Diente_35`, `Diente_51`, `Diente_52`: Nikon XT, **vóxel 16 µm isotrópico**, `.raw` uint16 con orden (z, y, x); dimensiones en el `.xtekVolume`. Pesan ~2,4–2,9 GB. Los números son la **numeración de la colección** (confirmado por Claudia), no códigos FDI. El tipo de diente **no está comprobado**: 35 y 52 parecen molares de dos raíces con varios conductos, pero el 51 sale con un solo conducto; hay que mirarlos en 3D Slicer antes de entrenar. Del diente 58 solo hay proyecciones porque su copia está mal hecha; el volumen existe y se volverá a copiar. Habrá ~40 µCT en total, en proceso de traspaso.
+- `1_Data_Validation/datasets/CBCT_75um/Isa_caso01`: CBCT real, 555×667×688, vóxel 0,075 mm, NRRD, más `Segmentation.seg.nrrd` hecha a mano por Isa (46 mm³, 15 componentes) que está marcada **`Segmentation.Status: inprogress`: es un borrador**, no una referencia fiable. Datos de paciente: no compartir.
 - **No existe todavía una máscara del canal hecha por un experto sobre el µCT.** La que se usa es la del script, sin validar.
 
 ## Lo ya hecho y resultados de referencia
@@ -38,11 +38,12 @@ Hallazgos: a 64 µm se pierden conductos finos (visto en el 52); las etiquetas d
 - Todo script nuevo debe poder aplicarse a varios µCT (parametrizado por carpeta).
 - No hacer `git commit` ni `git push` sin que Claudia lo pida. No subir datos.
 
-## Pendiente / preguntas abiertas (Luis, Ana)
-1. Máscara del canal del µCT hecha por expertos: ¿existe y dónde?
-2. ¿Cuántos µCT hay? Con 3 dientes no se puede entrenar bien (en las diapositivas se hablaba de 40).
-3. ¿Hay volumen reconstruido del diente 58? ¿Qué dientes son 35, 51 y 52?
-4. ¿Se puede tener el CBCT de Isa en la máquina del laboratorio (datos de paciente)?
+## Pendiente / preguntas abiertas
+Respondido por Claudia: habrá ~40 µCT (en traspaso); el volumen del 58 existe pero está mal copiado (se recopiará); los números son numeración de la colección.
+Sigue abierto:
+1. Máscara del canal del µCT hecha por expertos: Claudia se la pedirá a Ana **después de enseñarle lo que ya se puede hacer**; mientras tanto se sigue con la umbralización propia.
+2. ¿Se puede tener el CBCT de Isa en la máquina del laboratorio (datos de paciente)?
+3. Confirmar en 3D Slicer qué tipo de diente es cada µCT (¿son primeros molares?).
 
 ## Próximos pasos
 1. Generar las máscaras a 16 µm (`--downsample 1`) de los tres dientes y revisarlas en 3D Slicer.

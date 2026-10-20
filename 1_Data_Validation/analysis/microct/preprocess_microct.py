@@ -72,7 +72,10 @@ def normalization_anchors(vol: np.ndarray) -> dict:
 
 
 def normalize(vol: np.ndarray, anchors: dict) -> np.ndarray:
-    return (vol - anchors["aire"]) / (anchors["tejido"] - anchors["aire"])
+    """Normaliza en el sitio (vol debe ser float32) para no duplicar la memoria a 16 µm."""
+    vol -= np.float32(anchors["aire"])
+    vol /= np.float32(anchors["tejido"] - anchors["aire"])
+    return vol
 
 
 # ------------------------------------------------------------------- umbralización
@@ -153,7 +156,7 @@ def process(folder: Path, out_root: Path, downsample: int, thr: float, min_mm3: 
     vol_ds = downsample_mean(vol, downsample) if downsample > 1 else np.asarray(vol, np.float32)
     vox = voxel * downsample
     anchors = normalization_anchors(vol_ds)
-    norm = normalize(vol_ds, anchors).astype(np.float32)
+    norm = normalize(vol_ds, anchors)
     canal, tooth, comps = canal_mask(norm, vox, thr, min_mm3, min_len_mm)
 
     n = len(comps)
