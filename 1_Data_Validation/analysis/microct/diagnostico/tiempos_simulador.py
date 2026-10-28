@@ -70,7 +70,7 @@ else:
         t = sc.Tooth(a.results / a.diente)
         start = sim.pick_start(t, np.random.default_rng(0))
         for rep in range(2 if dev == "cuda" else 1):
-            out, dt = T(lambda: sim.patch(t, np.random.default_rng(1), start=start, center=True))
+            (out, _), dt = T(lambda: sim.patch(t, np.random.default_rng(1), start=start, center=True))
             print(f"{dev}: patch() {dt:.2f} s (repetición {rep})", flush=True)
         imgs[dev] = out["image"].cpu().numpy()
     if len(imgs) == 2:

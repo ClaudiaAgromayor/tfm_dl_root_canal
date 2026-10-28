@@ -11,18 +11,19 @@ Scripts que reproducen los números del análisis (`docs/RESUMEN_PROYECTO.md`) y
 |---|---|---|---|
 | `comparar_resultados.py` | compara regenerados con guardados (`pre`, `hash`, `json`, `calib`) | `idéntico` / hashes iguales | segundos |
 | `barrido_gap.py` | barrido de `--gap-mm` (RESUMEN 3.3) | con 0 el diente 51 a 16 µm se parte; con 0,13 mm: 1 componente de ~23,1 mm³ | minutos por diente a 16 µm |
-| `grosor_piezas.py` | grosor (radio inscrito) de grupos y piezas, motas | rayas de caries: radio p90 ≤ 0,03 mm; conductos ≥ 0,07 mm (sobre una máscara **sin** filtrar; ver el docstring) | ~1 min por diente |
+| `grosor_piezas.py` | grosor (radio inscrito) de grupos y piezas, motas | con la máscara actual (ya filtrada) no hay rayas de caries; el análisis original (rayas ≤ 0,03 mm, conductos ≥ 0,07 mm) era sobre una máscara **sin** filtrar, regenerable con `preprocess_microct.py --min-thick-mm 0` | ~1 min por diente |
 | `secciones_y_orificio.py` | sección mayor por corte y sensibilidad del orificio al umbral de área (RESUMEN 3.5) | orificio 786/797/815; −0,11…−0,21 mm con 1,25 mm², +0,22…+0,59 mm con 2,0 mm² | ~1 min |
 | `dice_32_vs_16.py` | volumen, componentes y Dice entre 16 y 32 µm (`resumen_etapa1.json`) | Dice (rejilla 32 µm) 0,9739 / 0,9773 / 0,9888 | ~1 min |
 | `ver_apice.py` | cortes ampliados del final de un conducto hasta la punta (RESUMEN 3.4) | el hueco se abre al exterior ~0,06 mm bajo el final de la máscara | segundos |
+| `imagen_para_isa.py` | imágenes (corte longitudinal sin marcas / con máscara y flecha; perpendicular; ampliado) para enseñar a una endodoncista dónde termina la máscara respecto a la punta de la raíz | `results/para_isa/` (9 PNG + `distancias.json`) | ~25 s |
 | `regresion_simulador.py` | parches con recortes fijos: guardar una línea base / compararla | `--legacy` frente a una versión antigua: diferencia 0 | ~1 min |
 | `muestreo_por_tercios.py` | reparto de los centros de parche por tercio y conducto por bloque, muestreo antiguo y nuevo | apical 13,9 % → 31,9 % | ~8 min |
 | `calibracion_reduccion.py` | efecto de la reducción exacta y del muestreo sobre la comprobación contra Isa | reducción exacta: σ del borde 0,142 → 0,141 mm | ~10 min |
 | `prueba_vox_distinto.py` | el simulador usa el vóxel de cada diente (copia a 32 µm) | mismo tamaño físico (9,599 mm), volumen de la etiqueta ±0,7 % | ~1 min |
 | `prueba_alineacion_y_pesos.py` | relleno de la cámara, franja de "ignorar", alineación imagen–etiqueta | mínimo de correlación en desplazamiento 0 en los 3 ejes | ~1 min |
-| `ruido_medida_sesgo.py` | por qué la medida de ruido sube con rangos aleatorios | correlación 0,76 con el gris de dentina sorteado | ~3 min |
-| `tiempos_simulador.py` | tiempo por etapas y CPU frente a GPU | `patch()` ~0,5 s en GPU, ~87 s en CPU | segundos / ~2 min |
-| `comprobaciones.py` | segmentación de Isa, ventanas de reducción, ganancia del ruido, conservación de la etiqueta, dilatación, semilla, tercios | ver su docstring | ~2 min |
+| `ruido_medida_sesgo.py` | por qué la medida de ruido sube con rangos aleatorios | ruido medido 81,5 con rangos aleatorios frente a 62,8 en el centro; correlación 0,65 con el gris de dentina sorteado | ~2 min |
+| `tiempos_simulador.py` | tiempo por etapas y CPU frente a GPU | `patch()` 0,41–0,45 s en GPU, 87,4 s en CPU | segundos / ~2 min |
+| `comprobaciones.py` | segmentación de Isa, ventanas de reducción, ganancia del ruido, conservación de la etiqueta, dilatación, semilla, tercios, muestreo | Isa: 15 componentes, 46,36 mm³; conservación con reducción exacta +0,019 %; tercios coinciden | ~7 min con `muestreo` (el resto, segundos) |
 
 ## Lo que NO se copió
 
