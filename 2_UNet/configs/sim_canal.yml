@@ -1,0 +1,35 @@
+# Entrenamiento con CBCT simulado (etapa 3). Se lanza con:  python train_sim.py -c configs/sim_canal.yml
+# Los valores de abajo son los de la PRUEBA DE MONTAJE con 3 dientes: no son una configuración final.
+title: sim_canal_montaje
+project_dir: ./results/entrenamientos_sim
+seed: 33
+
+data:
+  root: ../1_Data_Validation/results/microct          # cada subcarpeta con canal_solo_conducto.npy es un diente
+  simulator_config: ../1_Data_Validation/analysis/microct/simulate_cbct_config.yaml
+  batch_size: 2
+  prefetch: 2                                        # lotes que el hilo de simulación prepara por adelantado
+  # dientes que NO se usan para entrenar (validación = dejar un diente fuera). Con ~40 dientes: una lista por pliegue.
+  holdout: [Diente_52]
+  val_patches: 6                                     # parches fijos (semilla fija) del diente dejado fuera
+
+model:
+  name: CanalUNet3D
+  init_features: 16
+  depth: 4
+  dropout: 0.1
+
+loss:
+  name: SoftDiceBCE                                   # etiqueta blanda + mapa de pesos (0 = ignorar)
+  bce_weight: 1.0
+  dice_weight: 1.0
+
+optimizer:
+  name: Adam
+  learning_rate: 0.001
+  weight_decay: 0.0
+
+trainer:
+  iterations: 200
+  val_every: 50
+  amp: bf16

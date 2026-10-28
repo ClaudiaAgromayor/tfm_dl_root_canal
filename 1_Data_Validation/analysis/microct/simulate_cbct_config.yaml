@@ -1,0 +1,59 @@
+# Rangos del azar de simulate_cbct.py. Cada [mín, máx] se sortea de forma uniforme en cada parche.
+# Los rangos parten de la calibración con el CBCT de Isa (results/cbct_calibration/Isa_caso01/calibration.json),
+# se ensanchan a propósito (la idea es no aprenderse un escáner concreto, y solo hay UN CBCT real para calibrar) y
+# sus CENTROS se retocaron después para que la comprobación del simulador (simulate_cbct.py --check --center)
+# coincidiera con Isa: no son siempre los valores medidos (cada comentario dice cuál es el caso).
+# Unidades de gris = las del CBCT de Isa (tipo Hounsfield, aire = -1000; que sean Hounsfield reales NO está verificado).
+
+crop:
+  out_size: 128          # vóxeles de 75 µm por lado del parche de salida
+  voxel_out_mm: 0.075    # el bloque del µCT tiene out_size·voxel_out_mm/voxel_del_diente vóxeles (el vóxel sale de su info.json)
+  reduccion: exacta      # exacta = cajas de 75 µm exactas; adaptativa = la antigua (ventanas que se solapan, ~106 µm)
+  third_weights: [1, 1, 1]   # prob. de centrar el parche en el tercio [apical, medio, coronal] del conducto; null = vóxeles de
+                             # conducto al azar (la parte coronal pesa mucho más y solo ~12-16 % de los centros caían en el ápice)
+  jitter_mm: 3.0         # el centro del parche cae en un vóxel de conducto + este desplazamiento aleatorio
+  min_canal_mm3: 0.2     # un parche con menos conducto que esto se vuelve a sortear...
+  p_empty: 0.05          # ...salvo con esta probabilidad (parches sin conducto, como negativos)
+  aug_xy: true           # volteos y giro de 90° en el plano xy (z, el eje largo del diente, no se toca)
+
+intensity:
+  air_hu: -1000
+  dentin_ref_norm: 0.975   # gris del µCT normalizado en la dentina (pico medido en los 3 dientes)
+  dentin_hu: [1300, 2100]  # Isa: mediana 1678 (p5–p95 de vóxel: 1514–1884)
+  enamel_gain: [0.8, 1.15] # 1 = lineal con el µCT. Con aire=-1000 el lineal da esmalte 3395 y Isa mide 3339; el check dio +3 % con [0.85,1.2]
+  canal_hu: [-250, 500]    # contenido del conducto (pulpa). Isa: tejido blando ≈ -57; vóxeles profundos
+                           # de su borrador: mediana 433 (mezcla con borde, por eso el límite alto)
+
+background:              # lo que rodea al diente (hueso, médula, tejido blando): NO hay aire, el diente está en la mandíbula
+  base_hu: [-200, 550]
+  texture_amp_hu: [0, 900]      # amplitud de la textura (trabéculas / cortical); Isa lejos del diente: p25 -82, mediana 137, p75 1195
+  texture_sigma_mm: [0.25, 1.0]
+  clip_hu: [-400, 1900]
+  pdl:                   # capa fina de tejido blando pegada a la raíz (ligamento periodontal)
+    prob: 0.7
+    width_mm: [0.08, 0.3]
+    hu: [-150, 300]
+
+psf:                     # emborronado del escáner (gaussiano). Isa: sigma de borde medida 0.14 mm, que incluye el
+  sigma_mm: [0.08, 0.175] # vóxel y la interpolación. El centro (0.1275) NO es el valor medido (≈0.138 restando el vóxel): se bajó para que
+                          # el simulador midiera 0.141 como Isa con la reducción antigua; ver diagnostico/ y el RESUMEN, apartado 3.6
+  z_factor: [0.8, 1.25]  # sigma_z / sigma_xy (Isa: eje z 0.12 con solo 30 bordes, poco fiable)
+
+noise:
+  sd_hu: [20, 95]        # sd en dentina uniforme. Isa: mediana 61 (cuartiles 44–97). El centro (57.5) es menor que 61 a propósito: el
+                         # check mide ~8 % más que el valor puesto (la medida por bloques recoge algo de estructura)
+  corr_sigma_vox: [1.0, 1.7]   # correlación entre vecinos (Isa: autocorrelación lag 1 ≈ 0.84; el check con [0.8,1.5] dio 0.79)
+  density_exponent: [0.0, 0.15] # sd ∝ densidad^alfa. Isa: dentina 61 vs tejido blando 59 -> alfa ≈ 0
+  poisson_counts: [10, 80]     # fotones por vóxel antes de filtrar: más bajo = más asimetría (Isa: casi gaussiano)
+
+shading:                 # variación suave de brillo
+  mult: [0.0, 0.06]
+  add_hu: [0, 60]
+  sigma_mm: [2.0, 6.0]
+
+labels:                  # qué pasa con la cámara pulpar y las cavidades de la corona quitadas de la etiqueta
+  chamber_fill: pulp     # pulp = se rellenan con gris de pulpa (como en un paciente); bg = quedan como fondo
+  chamber_offset_hu: [-100, 100]   # su gris es el del conducto + este desplazamiento (no idéntico)
+  weight_mode: band      # band = peso 0 solo en una franja alrededor del orificio; chamber = peso 0 en toda
+                         # la cámara y cavidades; none = todo cuenta (etiqueta 0 en la cámara)
+  ignore_band_mm: 0.15   # medio ancho de la franja (el corte conducto/cámara es una convención de ~±0.1 mm)

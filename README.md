@@ -65,7 +65,11 @@ Public data sets are not used. Labels come from µCT and the network learns on C
 
 - **Normalisation:** two robust anchors per volume (air and median tooth grey level) so that one threshold works across scans.
 - **Canal:** the canal is air inside the tooth, so it is found as the cavity enclosed by tooth tissue in the axial slices; short cavities (pores, crown caries) are discarded.
-- **Resolution:** `--downsample` trades speed for detail. Thin canals are lost at 64 µm; use a lower value for final labels.
+- **Resolution:** `--downsample` trades speed for detail. Thin canals are lost at 64 µm; use a lower value for final labels. The thin-sheet filter (caries edges) is meant for voxels ≤ 32 µm.
+
+`calibrate_cbct.py` measures a real CBCT (grey levels, noise, edge blur) and `simulate_cbct.py` turns a labelled µCT into random 75 µm CBCT-like patches with aligned soft/binary labels, using the ranges in `simulate_cbct_config.yaml`.
+
+`split_canal.py` separates the canal (orifice to apex, the training label) from the pulp chamber and crown cavities, and measures where the canal ends relative to the root tip. `export_slicer.py` writes cropped 32 µm NRRD files (image + masks) for review in 3D Slicer.
 
 ### [`2_UNet/`](2_UNet/) — Segmentation training
 
@@ -100,19 +104,24 @@ pip install -r 2_UNet/requirements.txt
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-Run the µCT preprocessing from the repository root:
+Run the µCT preprocessing from any directory (the output location does not depend on it):
 
 ```bash
-python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35 --downsample 4 --out 1_Data_Validation/results/microct
+# final labels, full resolution (16 µm) -> 1_Data_Validation/results/microct/Diente_35
+python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35
+# quick test at 32 µm -> 1_Data_Validation/results/microct_32um/Diente_35 (never touches the final labels)
+python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35 --downsample 2
 ```
+
+The script refuses to overwrite a result folder that already has separated labels (`canal_solo_conducto.npy`, from `split_canal.py`) or that was computed at another resolution, unless `--force` is passed. After it, run `split_canal.py` on the result folder (see `docs/RESUMEN_PROYECTO.md`).
 
 ## Current status
 
 - [x] Environment on the GPU machine (CUDA PyTorch working)
 - [x] µCT normalisation and canal thresholding (3 teeth)
 - [ ] Review the masks against an expert segmentation (none available yet)
-- [ ] Canal labels at the full µCT resolution (16 µm)
-- [ ] CBCT simulator at 75 µm, calibrated on the real CBCT
+- [x] Canal labels at the full µCT resolution (16 µm), stable between 32 and 16 µm (to be reviewed in 3D Slicer)
+- [x] CBCT simulator at 75 µm, calibrated on one real CBCT (`analysis/microct/calibrate_cbct.py`, `simulate_cbct.py`)
 - [ ] Adapt the training framework to the simulated data and train
 - [ ] Evaluate on real CBCT
 - [ ] Geometric measurements (length, curvature, volume, diameter)

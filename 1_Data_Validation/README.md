@@ -5,7 +5,8 @@
 El proyecto **ya no usa los datos de Pulpy3D**. Ahora trabaja con µCT de dientes extraídos y con un CBCT real a 75 µm:
 
 - **`analysis/microct/`**: normalización de los µCT (Nikon XT, 16 µm) y extracción del canal por umbral. Es lo que se usa ahora. Ejemplo, desde la raíz del repositorio:
-  `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35 --downsample 4 --out 1_Data_Validation/results/microct`
+  `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35` (16 µm, las etiquetas finales van a `results/microct/`; con `--downsample 2` o `4` van a `results/microct_32um/` o `microct_64um/` y no pueden pisar las finales; el script se niega a sobrescribir etiquetas ya separadas salvo con `--force`).
+- **`analysis/microct/diagnostico/`**: scripts que reproducen los números del análisis (barridos, sensibilidad, comprobaciones del simulador); ver su `README.md`.
 - **`datasets/MicroCT/`** y **`datasets/CBCT_75um/`**: los datos (no se suben a GitHub; ver el README principal).
 
 Lo que viene a continuación en este README (Pulpy3D, `.venv`, 393 pacientes) es **análisis anterior, conservado solo como referencia**.

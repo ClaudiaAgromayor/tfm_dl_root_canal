@@ -1,10 +1,16 @@
 """Preprocesado de µCT (Nikon XT, .raw uint16): normalización y umbralización del canal.
 
-Uso (un diente o todos los de una carpeta):
+Uso (un diente o todos los de una carpeta; desde cualquier directorio):
     python analysis/microct/preprocess_microct.py datasets/MicroCT/Diente_35
-    python analysis/microct/preprocess_microct.py datasets/MicroCT --all --downsample 4
+    python analysis/microct/preprocess_microct.py datasets/MicroCT --all --downsample 2
 
-Por cada diente guarda en results/microct/<diente>/:
+Por defecto (--downsample 1 = resolución completa, 16 µm) las etiquetas FINALES van a
+1_Data_Validation/results/microct/<diente>/. Con otra resolución la salida va a una carpeta distinta
+(results/microct_32um, results/microct_64um...), así que una prueba rápida no puede pisar las finales; y si la
+carpeta de destino ya tiene etiquetas separadas por split_canal.py (canal_solo_conducto.npy...) o se calculó con
+otra resolución, el script se niega a escribir salvo que se pase --force. --out cambia la raíz de salida.
+
+Por cada diente guarda en <salida>/<diente>/:
     norm.npy         volumen normalizado (aire=0, tejido del diente=1), float16
     canal.npy        máscara binaria del canal (uint8)
     info.json        anclas de normalización, umbral y estadísticas
@@ -186,10 +192,37 @@ def qc_sections(norm, canal, out: Path):
 
 
 # ------------------------------------------------------------------------------ main
-def process(folder: Path, out_root: Path, downsample: int, thr: float, min_mm3: float,
+RESULTS = Path(__file__).resolve().parents[2] / "results"      # 1_Data_Validation/results, no depende del cwd
+SPLIT_FILES = ("canal_solo_conducto.npy", "camara_y_cavidades.npy", "canal_completo.npy")   # los crea split_canal.py
+
+
+def default_out_root(voxel_mm: float, downsample: int) -> Path:
+    """results/microct para la resolución completa (las etiquetas finales); results/microct_<µm>um para el resto."""
+    return RESULTS / ("microct" if downsample == 1 else f"microct_{round(voxel_mm * downsample * 1000)}um")
+
+
+def guard_overwrite(out: Path, downsample: int, force: bool):
+    """Se niega a pisar una carpeta con etiquetas ya separadas o hecha con otra resolución (salvo --force)."""
+    if force or not out.exists():
+        return
+    prev = None
+    if (out / "info.json").exists():
+        prev = json.loads((out / "info.json").read_text()).get("parametros", {}).get("downsample")
+    separadas = [f for f in SPLIT_FILES if (out / f).exists()]
+    if separadas or (prev is not None and prev != downsample):
+        raise SystemExit(
+            f"{out} ya existe y se sobrescribiría ({'tiene ' + ', '.join(separadas) if separadas else ''}"
+            f"{'; ' if separadas and prev not in (None, downsample) else ''}"
+            f"{'hecha con --downsample ' + str(prev) if prev not in (None, downsample) else ''}). "
+            "Usa --out para otra carpeta o --force si de verdad quieres pisarla (tendrás que volver a ejecutar split_canal.py).")
+
+
+def process(folder: Path, out_root, downsample: int, thr: float, min_mm3: float,
             min_len_mm: float, gap_mm: float = 0.13, min_piece_mm3: float = 0.005,
-            min_thick_mm: float = 0.05):
+            min_thick_mm: float = 0.05, force: bool = False):
     vol, voxel = open_volume(folder)
+    out_root = default_out_root(voxel, downsample) if out_root is None else out_root
+    guard_overwrite(out_root / folder.name, downsample, force)      # antes de gastar minutos de cálculo
     vol_ds = downsample_mean(vol, downsample) if downsample > 1 else np.asarray(vol, np.float32)
     vox = voxel * downsample
     anchors = normalization_anchors(vol_ds)
@@ -221,7 +254,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("path", type=Path, help="carpeta Diente_XX, o carpeta con varias si --all")
     ap.add_argument("--all", action="store_true")
-    ap.add_argument("--downsample", type=int, default=4, help="1 = resolución completa (16 µm)")
+    ap.add_argument("--downsample", type=int, default=1,
+                    help="1 = resolución completa (16 µm, las etiquetas finales); 2 = 32 µm; 4 = 64 µm (solo para pruebas "
+                         "rápidas: el filtro de grosor no vale a 64 µm)")
     ap.add_argument("--thr", type=float, default=0.5, help="umbral normalizado del canal")
     ap.add_argument("--min-mm3", type=float, default=0.05, help="volumen mínimo de un hueco")
     ap.add_argument("--min-len-mm", type=float, default=1.5,
@@ -232,8 +267,10 @@ if __name__ == "__main__":
                     help="quita piezas sueltas de canal más pequeñas que esto (motas de ruido)")
     ap.add_argument("--min-thick-mm", type=float, default=0.05,
                     help="quita piezas finas (rayas de caries): radio inscrito p90 menor que esto")
-    ap.add_argument("--out", type=Path, default=Path("results/microct"))
+    ap.add_argument("--out", type=Path, default=None,
+                    help="raíz de salida; por defecto 1_Data_Validation/results/microct (16 µm) o microct_<µm>um")
+    ap.add_argument("--force", action="store_true", help="permite sobrescribir una carpeta con etiquetas separadas")
     a = ap.parse_args()
     for f in (sorted(p for p in a.path.iterdir() if p.is_dir()) if a.all else [a.path]):
         process(f, a.out, a.downsample, a.thr, a.min_mm3, a.min_len_mm, a.gap_mm, a.min_piece_mm3,
-                a.min_thick_mm)
+                a.min_thick_mm, a.force)

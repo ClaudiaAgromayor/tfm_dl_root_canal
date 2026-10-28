@@ -37,7 +37,11 @@ El código parte del framework de entrenamiento de Pulpy3D (su modelo de seeding
 
 ---
 
-## ⚠️ Estado actual
+## Entrenamiento con CBCT simulado (nuevo, proyecto actual)
+
+Es independiente del framework de Pulpy3D de abajo: `python train_sim.py -c configs/sim_canal.yml --holdout Diente_52`. Usa `dataloader/SimCBCT.py` (descubre los dientes por carpeta en `1_Data_Validation/results/microct`, genera los parches con el simulador de `1_Data_Validation/analysis/microct/simulate_cbct.py`), `models/CanalUNet3D.py`, `losses/SoftDiceBCE.py` (etiqueta blanda con mapa de pesos) y `metrics_canal.py` (Dice y HD95 por tercios). Por ahora solo hay una **prueba de montaje con 3 dientes**, sin conclusiones; ver `../CLAUDE.md`.
+
+## ⚠️ Estado actual (framework de Pulpy3D, heredado)
 
 El código está listo, pero **el dataloader todavía espera el formato de Pulpy3D**:
 `datasets/Pulpy3D/<paciente>/data.nii.gz` + `gt_*.nii.gz`, más `splits.json` y `dataset.json`.

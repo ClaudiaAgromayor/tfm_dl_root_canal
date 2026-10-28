@@ -2,7 +2,7 @@
 #
 # torch NO está aquí porque se instala distinto según la máquina:
 #   - Ordenador con GPU NVIDIA (para entrenar):
-#       pip install torch --index-url https://download.pytorch.org/whl/cu126
+#       pip install torch --index-url https://download.pytorch.org/whl/cu130   # el de la máquina del laboratorio (driver 581.57, CUDA 13.0)
 #   - Este portátil (sin NVIDIA, solo para programar y probar el código en CPU):
 #       pip install torch --index-url https://download.pytorch.org/whl/cpu
 # y después:
