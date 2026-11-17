@@ -8,3 +8,6 @@ Back_up_codes_Parsec.png
 ~$*
 
 # Cada proyecto tiene además su propio .gitignore (datasets, results, .venv...)
+
+# Configuracion local del editor
+.vscode/
