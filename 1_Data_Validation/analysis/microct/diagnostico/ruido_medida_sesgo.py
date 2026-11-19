@@ -1,6 +1,6 @@
 """Por qué el "ruido en dentina" medido en el simulador sale más alto con rangos aleatorios que en el centro de los rangos.
 
-Reproduce lo de RESUMEN_PROYECTO.md (apartado 5.1, hallazgo 14): la medida de ruido (calibrate_cbct.block_noise) usa una
+Reproduce lo de PROYECTO.md (apartado 5.1, hallazgo 14): la medida de ruido (calibrate_cbct.block_noise) usa una
 ventana de gris FIJA para "dentina" (1450-1850); con rangos aleatorios, la dentina simulada cae a veces fuera de ella y la
 ventana solo recoge bloques de borde, con más estructura. No es un fallo del ruido simulado, es un sesgo de la medida.
 

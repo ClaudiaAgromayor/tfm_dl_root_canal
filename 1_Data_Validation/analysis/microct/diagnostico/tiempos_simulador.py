@@ -1,6 +1,6 @@
 """Cuánto tarda un parche del simulador, por etapas, y en CPU frente a GPU.
 
-Reproduce los tiempos de RESUMEN_PROYECTO.md (apartado 3.6): `patch()` ~0,5 s en GPU (la primera llamada incluye el
+Reproduce los tiempos de PROYECTO.md (apartado 3.6): `patch()` ~0,5 s en GPU (la primera llamada incluye el
 arranque) frente a ~87 s en CPU (20 hilos).
 
     python tiempos_simulador.py --que etapas            # lectura del disco, conversión y patch() en GPU

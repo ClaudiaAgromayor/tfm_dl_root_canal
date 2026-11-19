@@ -1,8 +1,34 @@
-# Resumen del proyecto: segmentar conductos radiculares en CBCT con µCT sintético
+# Proyecto: qué se ha hecho, por qué, qué se ha encontrado y qué falta
 
-> Documento de referencia para alguien que programa pero no sabe odontología ni imagen médica.
-> Escrito el 2026-10-28 a partir de la lectura del código real, no de CLAUDE.md ni de memoria.
-> Estado del repositorio: **sin commit** de nada de lo que se describe aquí.
+**Para qué sirve este documento.** Es el cuaderno técnico del proyecto: **cada paso que se ha dado (del µCT a la red de segmentación), por qué se hizo así, qué números salieron, qué se descubrió, qué límites tiene y qué falta**. Cada afirmación técnica cita el fichero y la línea del código. Es el documento al que acudir para saber «¿esto está comprobado?» o «¿por qué se decidió esto?».
+
+**A quién va dirigido.** A alguien que programa pero no sabe odontología ni imagen médica (Claudia, Luis, un revisor del TFM).
+
+**Qué NO está aquí:**
+- Cómo se ejecuta cada script, dónde está cada fichero, el glosario y las preguntas frecuentes → [GUIA.md](GUIA.md).
+- Cómo se miden longitud, curvatura, ángulos y diámetros (y su error) → [MEDICION.md](MEDICION.md).
+- Qué dicen los papers → [LITERATURA.md](LITERATURA.md).
+- Las reglas de trabajo para Claude Code y el estado en una página → [`CLAUDE.md`](../CLAUDE.md).
+
+Escrito el 2026-10-28 a partir de la lectura del código real; reorganizado y ampliado el 2026-11-19 (nuevo: apartados 3.14, 4, 8, 9, 10 y 11). Estado del repositorio: **sin commit** de nada de lo que se describe.
+
+## Índice
+
+- 0. Cómo leer este documento
+- 1. Resumen de una página
+- 2. Los dos carriles y los datos de entrada
+- 3. Los pasos, uno a uno
+- 4. Las decisiones de diseño, de un vistazo
+- 5. Hallazgos y correcciones durante el proyecto
+- 6. Límites y riesgos honestos
+- 7. Estado frente a lo que pidió Luis
+- 8. Uso final para el dentista y lo que implica para la segmentación (aclarado el 2026-11-18 y 19)
+- 9. Lo que falta por hacer, en orden
+- 10. Dudas, cosas no comprobadas y preguntas abiertas
+- 11. Historial de cambios
+- Apéndice A. Cómo reproducir cada número
+
+---
 
 ## 0. Cómo leer este documento
 
@@ -26,7 +52,7 @@
 | `MF` | `2_UNet/models/ModelFactory.py` (heredado) |
 | `PL` | `2_UNet/dataloader/Pulpy.py` (heredado) |
 | `PC` | `2_UNet/configs/pulp_segmentation.yml` (heredado) |
-| `CL` | `CLAUDE.md` · `RD` = `README.md` (raíz) · `GPU` = `test_gpu.py` |
+| `RD` | `README.md` (raíz) · `GPU` = `test_gpu.py` |
 
 Las rutas de datos y resultados son relativas a `1_Data_Validation/` (ahí cuelgan `datasets/` y `results/`). `datasets/` y `results/` **no están en git** (y contienen datos de paciente en el caso del CBCT).
 
@@ -34,77 +60,42 @@ Las rutas de datos y resultados son relativas a `1_Data_Validation/` (ahí cuelg
 
 - **[reejecutado hoy]**: lo volví a calcular el 2026-10-28 con el comando indicado y coincide con lo guardado (los pasos se llaman V1…V9 y E-a…E-e, y están descritos en el Apéndice A).
 - **[leído de fichero]**: está en un fichero de resultados (`info.json`, `metrics.json`…) que no he vuelto a generar hoy.
-- **[no reproducible desde el repo]**: salió de un script temporal de la sesión que **no se ha copiado** al repositorio (ver 9). Los scripts que sí se copiaron están en `1_Data_Validation/analysis/microct/diagnostico/` (con su `README.md`) y sus resultados se marcan **[reejecutado hoy]**.
+- **[no reproducible desde el repo]**: salió de un script temporal de la sesión que **no se ha copiado** al repositorio (ver 10). Los scripts que sí se copiaron están en `1_Data_Validation/analysis/microct/diagnostico/` (con su `README.md`) y sus resultados se marcan **[reejecutado hoy]**.
 - **[no verificado]**: lo afirma alguien (un comentario del código, CLAUDE.md…) y no lo he comprobado.
 
 **Comandos.** Todos se lanzan desde la raíz del repositorio (`D:\tfm_claudia`) con el entorno conda `tfm`:
 `C:\Users\tfg\.conda\envs\tfm\python.exe` (Python 3.12, PyTorch 2.14.1+cu130 **[reejecutado hoy]**, versiones en el Apéndice A). Abreviamos ese intérprete como `python`.
 
+*Las citas `[alias:línea]` son de la lectura del 2026-10-28 y pueden estar desplazadas unas líneas si el fichero se ha tocado después. Las que apuntaban a `CLAUDE.md` se han quitado: ese fichero se acortó el 2026-11-19 y sus líneas ya no valen.*
+
 ---
-
-## 0b. Cambios hechos después de la primera versión de este documento (2026-10-28)
-
-Esta versión recoge cambios de código hechos tras la primera; las citas de línea ya están actualizadas. **Sin commit.**
-
-1. **El preprocesado ya no puede sobrescribir las etiquetas finales.** `preprocess_microct.py` escribe por defecto en `results/microct` solo a 16 µm; con otra resolución va a `results/microct_32um`, `microct_64um`… [P:195-201]; se niega a escribir en una carpeta con etiquetas separadas o hecha con otra resolución salvo con `--force` [P:204-217, P:225]; el `--downsample` por defecto pasa de 4 a 1 [P:257]; la salida ya no depende del directorio de trabajo. Probado: el comando antiguo de los README aborta en 0,8 s y la prueba a 64 µm va a su propia carpeta (que borré después). Los dos README están corregidos.
-2. **Vóxel por diente.** El simulador lee el vóxel de cada `info.json` y calcula el tamaño del bloque (`crop_size`) en vez de suponer 16 µm [SIM:213-218]. Con los interruptores en modo antiguo, el resultado es **idéntico** al de antes (diferencia máxima 0,0 en imagen, etiqueta blanda y pesos; 12 parches) y con una copia a 32 µm da el mismo parche físico (3.6).
-3. **Reducción a 75 µm exacta.** Sustituye las ventanas solapadas de 106 µm por cajas exactas de 75 µm [SIM:101-126]. Efecto sobre la calibración contra Isa: despreciable (3.6).
-4. **Muestreo por tercios.** Los parches se centran a partes iguales en los tercios apical, medio y coronal del conducto [SIM:238-269]. Apical: 13,9 % → 31,9 % de los centros. Efecto sobre el entrenamiento: **inconcluso** con 200 iteraciones (mitad de los entrenamientos sin despegar) y, con 1000 iteraciones en una vuelta y una semilla, **mismo Dice apical final** (0,58) con convergencia más rápida del equilibrado (3.12).
-5. **Contradicciones de 5.3:** corregidas las de código y documentación; ver 5.3.
-6. **Scripts de diagnóstico copiados** a `analysis/microct/diagnostico/`, parametrizados, con `README.md` y probados.
-7. **Comentario de Isa** sobre las imágenes del final del conducto (informal, relatado por Claudia): la máscara termina donde ella pondría el foramen, **pero solo vio el diente 52** (3.4(e)).
 
 ## 1. Resumen de una página
 
-**Problema.** Un endodoncista trata los conductos de la raíz de un diente (los "tubos" por donde van el nervio y los vasos). Para planificar necesita saber longitud, curvatura, volumen y diámetro de cada conducto. En la clínica solo hay un **CBCT** (tomografía de rayos X con vóxeles de unos 75 µm = 0,075 mm), que es demasiado borroso en la punta de la raíz (el **ápice**) para que nadie dibuje el conducto a mano con fiabilidad; sin dibujo manual no hay datos para entrenar una red neuronal. Objetivo: segmentar automáticamente los conductos de los primeros molares inferiores (36/46) en un CBCT y medirlos [CL:5-6].
+**El problema y la idea** están en [GUIA.md](GUIA.md), apartado 1 (cinco líneas). En una frase: se segmentan los conductos de un CBCT con una red que se entrena con **CBCT falsos fabricados a partir de µCT de dientes extraídos**, donde la etiqueta sale gratis y ya está alineada.
 
-**Idea.** Un **µCT** (micro-tomografía, vóxel de 16 µm) de un diente extraído sí muestra el conducto con nitidez, y su conducto es "aire dentro del diente", así que se puede sacar casi sin ayuda humana. Entonces: (1) sacar el conducto del µCT por reglas geométricas; (2) **fabricar un CBCT falso** degradando ese mismo µCT (borrosidad, ruido, 75 µm, tejidos alrededor); (3) entrenar una red 3D con los falsos, donde la etiqueta ya coincide con la imagen porque sale del mismo volumen (no hay que alinear imágenes); (4) aplicarla a CBCT reales y medir sobre su salida.
-
-**Estado actual (2026-10-28).**
-- Hecho y reproducido hoy: sacar el conducto del µCT a 16 µm en 3 dientes (V2, V3); separar "solo conducto" de "cámara pulpar y cavidades" (V5); calibrar contra un CBCT real (V4); simulador de CBCT que reproduce las medidas de ese CBCT (V6); montaje de entrenamiento extremo a extremo (V8).
-- Los 3 µCT dan volúmenes de "solo conducto" de 11,2 / 8,0 / 11,7 mm³ (dientes 35 / 51 / 52) **[leído de fichero]** (`results/microct/Diente_XX/info.json`, clave `separacion.volumen_mm3`).
-- Se entrenó 200 iteraciones por vuelta como **prueba de montaje**, no como entrenamiento; **no se saca ninguna conclusión de calidad**.
+**Estado actual (2026-11-19).**
+- Hecho y reproducido: sacar el conducto del µCT a 16 µm en 3 dientes (V2, V3); separar «solo conducto» de «cámara pulpar y cavidades» (V5); calibrar contra un CBCT real (V4); simulador de CBCT que reproduce las medidas de ese CBCT (V6); montaje de entrenamiento extremo a extremo (V8); una prueba de la red de montaje sobre el CBCT de Isa (3.14).
+- **Medición analítica** (línea central, longitud, curvatura, ángulos, diámetros) hecha y validada sobre los 3 µCT: [MEDICION.md](MEDICION.md).
+- Los 3 µCT dan volúmenes de «solo conducto» de 11,2 / 8,0 / 11,7 mm³ (dientes 35 / 51 / 52) **[leído de fichero]** (`results/microct/Diente_XX/info.json`, clave `separacion.volumen_mm3`).
+- Se entrenó como **prueba de montaje**, no como entrenamiento; **no se saca ninguna conclusión de calidad**.
+- **Uso final aclarado (apartado 8):** el dentista meterá el CBCT entero (siempre a 75 µm) y pedirá el 36 o el 46; lo que hay hoy **no sirve todavía para eso** (no distingue un diente de sus vecinos).
 
 **Lo que falta (lo importante).**
-1. Ninguna máscara hecha por un experto sobre el µCT: todo lo que se llama "etiqueta" es la salida de un algoritmo sin validar [CL:19]. Claudia revisará en 3D Slicer.
-2. Solo 3 µCT (de ~40 que están en traspaso) y no está comprobado que 2 de ellos sean molares.
-3. Un único CBCT real, con una segmentación "en curso" (borrador) de Isa, para calibrar el simulador.
-4. Faltan: entrenar de verdad, evaluar en el CBCT real, el volumen completo simulado, la distancia al ápice, y la medición geométrica (línea central + distancia a la pared) del diámetro, longitud y curvatura.
+1. Ninguna máscara hecha por un experto sobre el µCT: todo lo que se llama «etiqueta» es la salida de un algoritmo sin validar. Claudia revisará en 3D Slicer.
+2. Solo 3 µCT (de ~40 en traspaso) y no está comprobado que 2 de ellos sean molares.
+3. CBCT reales: 8 con una segmentación «en curso» (borrador) de Isa y 3 solo con DICOM; sirven para calibrar y como prueba, no como referencia.
+4. Faltan: la segmentación del diente pedido (apartado 8), entrenar de verdad, el volumen completo simulado, evaluar en los CBCT reales y medir sobre la predicción.
+
 
 ---
 
-## 2. Esquema del pipeline, de µCT a medidas
+## 2. Los dos carriles y los datos de entrada
 
-```
- .raw (µCT Nikon, uint16, 16 µm)          CBCT real de Isa (NRRD, 75 µm)
-        │                                         │
- [3.1] normalizar (aire=0, tejido=1)              │
-        │                                         │
- [3.2] umbral 0,5 + "hueco encerrado"             │
-        │                                         │
- [3.3] limpieza a 16 µm (motas, láminas)          │
-        │  → canal_completo.npy (= canal.npy)     │
-        ├──[3.4/3.5] orientación, ápice, separar  │
-        │        conducto ≠ cámara                │
-        │  → canal_solo_conducto.npy  (ETIQUETA)  │
-        │  → camara_y_cavidades.npy               │
-        │                                         ▼
-        │                              [3.7] calibrar: grises, ruido, borde
-        │                                         │ (rangos del azar, Y)
-        ▼                                         ▼
- [3.6] SIMULADOR de CBCT a 75 µm  ◄────────────── rangos
-        │   imagen + etiqueta blanda + pesos
-        ▼
- [3.8] dataset por carpetas  →  [3.9] red 3D  ←  [3.10] pérdida  →  [3.12] entrenamiento
-                                      │                                      │
-                                      ▼                                      ▼
-                              [3.11] métricas por tercios        (todavía NO: aplicar a CBCT real
-                                                                   y medir longitud/curvatura/diámetro)
-```
+El diagrama del camino de los datos, con los comandos de cada paso, está en [GUIA.md](GUIA.md), apartado 2. Aquí solo hace falta distinguir **dos «carriles»**: el **carril del µCT** (pasos 3.1–3.5) produce las etiquetas y vive en 16 µm; el **carril del CBCT** (3.6–3.12) trabaja en 75 µm y es donde entrena la red.
 
-Dos "carriles" que conviene no confundir: el **carril del µCT** (pasos 3.1–3.5) produce las etiquetas y vive en 16 µm; el **carril del CBCT** (3.6–3.12) trabaja en 75 µm y es donde entrena la red.
+Datos de entrada reales (en `datasets/`, fuera de git): tres µCT `MicroCT/Diente_35`, `Diente_51`, `Diente_52`: `.raw` uint16 con orden (z, y, x), dimensiones 790×1230×1473, 763×1230×1455 y 735×1108×1451 vóxeles, vóxel 0,015999 mm **[leído de fichero]** (`results/microct/Diente_XX/info.json`, `forma_zyx` y `voxel_mm`). CBCT reales de Isa en `CBCT_75um/` (`Isa_caso00` y `Isa_caso01…10`; 555×667×688 vóxeles de 0,075 mm los de mayor tamaño, NRRD con una segmentación manual en curso). Los «números» de los dientes (35, 51, 52) son **numeración de la colección, no códigos dentales**.
 
-Datos de entrada reales (en `datasets/`, fuera de git): tres µCT `MicroCT/Diente_35`, `Diente_51`, `Diente_52`: `.raw` uint16 con orden (z, y, x), dimensiones 790×1230×1473, 763×1230×1455 y 735×1108×1451 vóxeles, vóxel 0,015999 mm **[leído de fichero]** (`results/microct/Diente_XX/info.json`, `forma_zyx` y `voxel_mm`). Un CBCT real `CBCT_75um/Isa_caso01` de 555×667×688 vóxeles de 0,075 mm con una segmentación manual de Isa **[leído de fichero]** (cabecera del NRRD; ver Apéndice A, E-a). Los "números" de los dientes (35, 51, 52) son **numeración de la colección, no códigos dentales** [CL:17].
 
 ---
 
@@ -128,7 +119,7 @@ Datos de entrada reales (en `datasets/`, fuera de git): tres µCT `MicroCT/Dient
 - `downsample_mean` (bajar la resolución un factor `f`) promedia bloques `f×f×f` leyendo **por losas** de `f` cortes, para no cargar los 2,9 GB enteros [P:59-67]. Coste: una pasada, O(N) en vóxeles, memoria de una losa + el resultado.
 - `normalization_anchors` calcula Otsu (un método que elige el umbral que mejor separa dos "montones" de valores en el histograma) sobre una submuestra `vol[::3, ::3, ::3]`, es decir, 1/27 de los vóxeles [P:73-74], para ir rápido.
 - `normalize` resta y divide **en el sitio** (`-=`, `/=`) para no duplicar los ~5,7 GB que ocupa un volumen `float32` a 16 µm [P:80-84].
-- *Parámetros:* `--downsample` (1 = 16 µm, 2 = 32 µm, 4 = 64 µm; por defecto **1**, las etiquetas finales) [P:257]. La carpeta de salida depende de la resolución (`results/microct` a 16 µm; `microct_32um`, `microct_64um`…) [P:199-201] y el script se niega a sobrescribir una carpeta con etiquetas separadas (`canal_solo_conducto.npy`…) o calculada con otra resolución salvo con `--force` [P:204-217, P:225, P:272]. A 64 µm se pierden conductos finos (visto en el diente 52) [CL:24, no re-probado hoy].
+- *Parámetros:* `--downsample` (1 = 16 µm, 2 = 32 µm, 4 = 64 µm; por defecto **1**, las etiquetas finales) [P:257]. La carpeta de salida depende de la resolución (`results/microct` a 16 µm; `microct_32um`, `microct_64um`…) [P:199-201] y el script se niega a sobrescribir una carpeta con etiquetas separadas (`canal_solo_conducto.npy`…) o calculada con otra resolución salvo con `--force` [P:204-217, P:225, P:272]. A 64 µm se pierden conductos finos (visto en el diente 52) [CLAUDE.md, no re-probado hoy].
 
 **(d) Resultado.** Con `--downsample 1` el diente 52 sale idéntico byte a byte al guardado (anclas, `norm.npy`, `canal.npy`) **[reejecutado hoy]** (V2; el paso completo, que incluye comparar con lo guardado, tardó 129,3 s). Comando: `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_52 --downsample 1 --out <carpeta>`.
 
@@ -146,8 +137,8 @@ Datos de entrada reales (en `datasets/`, fuera de git): tres µCT `MicroCT/Dient
 - *Alternativas descartadas o no usadas:*
   - *Rellenar huecos en 3D:* falla porque el conducto se abre al exterior por el ápice y por la cámara; en 3D "no está encerrado" y se perdería entero. Por cortes axiales sí está encerrado casi siempre. **[razonado, no probado como variante]**.
   - *Región creciente desde un punto semilla:* necesita que una persona marque el orificio de cada diente; no sirve para ~40 dientes sin intervención. **[no probado]**.
-  - *Segmentación manual por un experto:* sería la referencia, pero no existe para estos µCT [CL:19, CL:44].
-  - *Red neuronal ya entrenada (Pulpy3D, datos de Fer):* descartada por decisión del proyecto [CL:9].
+  - *Segmentación manual por un experto:* sería la referencia, pero no existe para estos µCT (CLAUDE.md).
+  - *Red neuronal ya entrenada (Pulpy3D, datos de Fer):* descartada por decisión del proyecto.
 - *Umbral 0,5:* el punto medio entre aire y tejido (ver 3.1) [P:21-22, P:260].
 
 **(c) Cómo funciona el código.**
@@ -159,7 +150,7 @@ Datos de entrada reales (en `datasets/`, fuera de git): tres µCT `MicroCT/Dient
 
 **(e) Límites.**
 - Un conducto **no encerrado** en un corte no se detecta en ese corte. Pasa en el ápice (se abre al exterior) y en la cámara abierta a una caries. Se verificó a mano para el ápice (ver 3.4) [S:132-146].
-- Asume que el eje largo del diente es z. El código no lo comprueba; en los 3 dientes lo es [CL:17] **[no verificado para los ~40 restantes]**.
+- Asume que el eje largo del diente es z. El código no lo comprueba; en los 3 dientes lo es **[no verificado para los ~40 restantes]**.
 - Las cavidades de la corona (caries, poros) también son "huecos encerrados" y entran en la máscara; por eso existen 3.3 y 3.5.
 
 ---
@@ -205,7 +196,7 @@ Comandos: `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Dat
 Tiempo: los pasos V2 y V3 completos (preprocesado **más** la comparación con lo guardado, que lee varios GB) tardaron 129,3 s a 16 µm y 24,5 s a 32 µm **[reejecutado hoy]**; el script solo tarda algo menos (no medido por separado). Memoria de pico: **[no medida]**.
 
 **(e) Límites.**
-- Los tres parámetros nuevos (0,13 mm, 0,05 mm, 0,005 mm³) están ajustados mirando solo 3 dientes [CL:86].
+- Los tres parámetros nuevos (0,13 mm, 0,05 mm, 0,005 mm³) están ajustados mirando solo 3 dientes.
 - El 51 conserva una cavidad grande de la corona (~6 mm³) dentro de su "grupo principal" en este paso; se resuelve en 3.5 por estar por encima del orificio.
 - Un conducto muy fino (< ~30 µm de ancho) no se ve a 16 µm; no hay forma de saber que existe **[no verificado]**.
 
@@ -292,7 +283,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
   - *Solo bajar la resolución:* no cierra la diferencia entre µCT y CBCT (borrosidad, ruido, contraste). **[razonado]**.
   - *Simulación física* (proyecciones de rayos X cónicas con ruido y reconstrucción): la más realista, pero requiere la geometría del escáner CBCT y mucho más cómputo. **[no probado]**.
   - *Red generativa que "traduzca" µCT a CBCT (CycleGAN y similares):* necesita muchas imágenes CBCT reales sin pares y puede inventar anatomía. Hay un solo CBCT real. **[no probado]**.
-  - *Registrar CBCT reales con µCT:* descartado por falta de pares (los datos de Fer y Pulpy3D están descartados) [CL:9].
+  - *Registrar CBCT reales con µCT:* descartado por falta de pares (los datos de Fer y Pulpy3D están descartados).
 - *Mapeo de grises lineal con aire = −1000:* en el µCT el cociente esmalte/dentina es 1,64 (1,6/0,975); en el CBCT de Isa con aire en −1000 es (3339+1000)/(1678+1000) = 1,62 **[leído de fichero]** (`calibration.json`). Casi iguales, así que no hace falta una curva rara [SIM:289-294].
 - *Alrededor del diente NO hay aire:* un diente extraído estaba en el aire del escáner, pero en un paciente está rodeado de hueso, médula y tejido blando. El simulador pone un fondo aleatorio con textura y a veces una capa fina de tejido blando pegada a la raíz (el **ligamento periodontal**) [SIM:295-306, Y:27-35]. Medido en Isa: el aire solo es el 0,002 % del recorte alrededor del diente **[leído de fichero]** (`calibration.json`, `grises.fraccion_en_el_minimo`).
 - *Conducto, cámara y cavidades rellenos con gris de pulpa:* en un paciente contienen tejido, no aire. Si se rellenaran de "hueso", la red aprendería atajos falsos ("un hueco oscuro dentro del diente = conducto") [SIM:307-319, Y:54-59]. La etiqueta sigue siendo solo el conducto; la cámara va con etiqueta 0 y su gris es el del conducto más un desplazamiento aleatorio (±100 HU) para que no sean idénticos [Y:56].
@@ -319,7 +310,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
 - **Rendimiento:** `patch()` tarda 0,41–0,45 s en GPU (la primera llamada, ~1 s, incluye el arranque) y 87,4 s en CPU con 20 hilos: unas **210 veces más lento**; el bucle de la línea de comandos, que además comprime y guarda cada parche, tarda 1,0–1,6 s y llega a 11,3 GB de GPU de pico **[reejecutado hoy]** (`diagnostico/tiempos_simulador.py --que etapas` y `--que cpu_gpu`; `simulate_cbct.py --n 6`). `CUDA_VISIBLE_DEVICES=-1` no sirve para forzar CPU: Python se cae al importar torch.
 - *Parámetros y efecto* (los rangos están en `Y`): `psf.sigma_mm` [0,08, 0,175] (más ancho = más borroso); `noise.sd_hu` [20, 95] (desviación típica del ruido); `noise.corr_sigma_vox` [1,0, 1,7] (cuánto se parecen los vecinos); `intensity.canal_hu` [−250, 500] (gris del conducto: es el parámetro más importante para el contraste y el **menos medido**) [Y:24-25]; `labels.weight_mode` `band|chamber|none` y `labels.chamber_fill` `pulp|bg` [Y:55-59]. Efecto de los modos: la franja `band` da peso 0 al 0,23–0,25 % del parche y `chamber` al 1,4–2,8 % **[no reejecutado hoy]** (2026-10-21, `sim_tests2.py`).
 
-**(d) Resultado.** Con los parámetros en el centro de cada rango, el simulador (reducción exacta; la comprobación `--check` usa muestreo proporcional al volumen, como se calibró, porque Isa se midió en un recorte con corona) reproduce las medidas del CBCT de Isa **[reejecutado hoy tras los cambios]** (`python 1_Data_Validation/analysis/microct/simulate_cbct.py <3 carpetas results/microct/Diente_XX> --check --center --n 36 --seed 1 --calibration 1_Data_Validation/results/cbct_calibration/Isa_caso01/calibration.json`):
+**(d) Resultado.** Con los parámetros en el centro de cada rango, el simulador (reducción exacta; la comprobación `--check` usa muestreo proporcional al volumen, como se calibró, porque Isa se midió en un recorte con corona) reproduce las medidas del CBCT de Isa **[reejecutado hoy tras los cambios]** (`python 1_Data_Validation/analysis/microct/simulate_cbct.py <3 carpetas results/microct/Diente_XX> --check --center --n 36 --seed 1 --calibration 1_Data_Validation/results/cbct_calibration/Isa_caso00/calibration.json`):
 
 | Magnitud | Isa (real) | Simulado |
 |---|---|---|
@@ -386,7 +377,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
 **(a) Qué hace.** Entrega lotes de parches simulados a la red y un banco fijo de parches para validar [DS:1-18].
 
 **(b) Por qué así.**
-- *Descubrir dientes por carpeta:* un diente es toda subcarpeta con `info.json`, `norm.npy` y `canal_solo_conducto.npy` [DS:34, DS:37-40]. Añadir un µCT es añadir su carpeta, sin editar listas. Sustituye a la forma de Pulpy3D, que necesita `splits.json` y volúmenes `.nii.gz` con el paciente ya dividido [PL:23, PL:31]. **Hay ~40 µCT en traspaso** [CL:17], y la lista cambiará.
+- *Descubrir dientes por carpeta:* un diente es toda subcarpeta con `info.json`, `norm.npy` y `canal_solo_conducto.npy` [DS:34, DS:37-40]. Añadir un µCT es añadir su carpeta, sin editar listas. Sustituye a la forma de Pulpy3D, que necesita `splits.json` y volúmenes `.nii.gz` con el paciente ya dividido [PL:23, PL:31]. **Hay ~40 µCT en traspaso**, y la lista cambiará.
 - *Generar en la GPU, en el proceso principal, con un hilo de prefetch:* el docstring afirma que "la GPU no se comparte bien con procesos hijos" [DS:9-10]; **[no verificado]**, no se probó con procesos hijos. Tampoco se probó `torchio.Queue` (lo que usa Pulpy [PL:53-68]).
 - *Alternativas descartadas o no usadas:* (1) **banco pregenerado en disco** (8 MB por parche comprimido; 4000 parches ≈ 32 GB, poca diversidad entre épocas) **[razonado, no probado]**; (2) **`DataLoader` con varios procesos** (descartado por lo anterior, no verificado).
 - *Normalización por parche:* los grises de cada parche se reescalan con los percentiles 1 y 99,5 y se recortan a [−0,5; 1,5], para que la red no dependa de la escala de gris de un escáner [DS:43-46].
@@ -429,7 +420,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
 **(a) Qué hace.** Mide el error entre la salida de la red y la etiqueta, ignorando los vóxeles con peso 0 [LOSS:1-5].
 
 **(b) Por qué así.**
-- *Etiqueta blanda:* a 75 µm un vóxel puede ser en parte conducto; la fracción (entre 0 y 1) que sale de reducir la máscara de 16 µm conserva esa información en vez de forzar 0/1 [SIM:342; CL:24].
+- *Etiqueta blanda:* a 75 µm un vóxel puede ser en parte conducto; la fracción (entre 0 y 1) que sale de reducir la máscara de 16 µm conserva esa información en vez de forzar 0/1 [SIM:342].
 - *BCE con logits (entropía cruzada binaria)* acepta objetivos entre 0 y 1 y es numéricamente estable [LOSS:19]. *Dice blando* (solapamiento entre predicción y objetivo) compensa que el conducto ocupa una fracción pequeña del parche [LOSS:20-25]. La suma de ambas es habitual.
 - *Alternativas del repo no usadas:* `Jaccard` (pérdida de Pulpy) y `DiceCrossEntropy` (multiclase) [PC:41-42; `2_UNet/losses/LossFactory.py:17-27`]. **[no se probó una comparación]**.
 - *Mapa de pesos:* un peso 0 quita ese vóxel de ambas partes (ignorar) [LOSS:18-19, 22-23]; sirve para la franja del orificio (3.6).
@@ -447,7 +438,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
 **(a) Qué hace.** Compara la predicción binaria con la etiqueta binaria **por separado** en el tercio apical, medio y coronal del conducto, y en total [MET:1-10].
 
 **(b) Por qué así.**
-- El Dice global lo domina la parte coronal ancha; el ápice, lo más difícil y clínicamente importante, pesa poco. De ahí los **tercios** (regla del proyecto [CL:37]).
+- El Dice global lo domina la parte coronal ancha; el ápice, lo más difícil y clínicamente importante, pesa poco. De ahí los **tercios** (regla del proyecto).
 - **HD95** (distancia de Hausdorff al percentil 95): la distancia (mm) que no supera el 95 % de los puntos de una superficie a la otra; mide los errores "lejanos" y es menos sensible a un único punto atípico que el Hausdorff máximo.
 - *Alternativas no implementadas:* Dice de superficie, error en la línea central, error de cada medida (longitud, curvatura, volumen, diámetro), distancia al ápice real; **pendientes** (`MET:8-9`).
 
@@ -468,7 +459,7 @@ Comando: `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Valida
 **(a) Qué hace.** Entrena la red con parches simulados y valida **dejando un diente fuera** [TR:1-13].
 
 **(b) Por qué así.**
-- **"Dejar un diente fuera"** (*leave-one-tooth-out*): se entrena con todos los dientes menos uno y se valida en ese; así no hay **fuga de datos** (que el mismo diente aparezca en entrenamiento y validación con otro recorte, lo que inflaría los resultados) [TR:5-6, TR:72, TR:84, CL:36]. Con 3 dientes son 3 vueltas.
+- **"Dejar un diente fuera"** (*leave-one-tooth-out*): se entrena con todos los dientes menos uno y se valida en ese; así no hay **fuga de datos** (que el mismo diente aparezca en entrenamiento y validación con otro recorte, lo que inflaría los resultados) [TR:5-6, TR:72, TR:84, CLAUDE.md]. Con 3 dientes son 3 vueltas.
 - **Adam** con tasa 0,001 [CFG:27-30, TR:100] y **bf16** (números de 16 bits con el rango de los de 32) [TR:116]. El Pulpy original usa SGD con tasa 0,1 y planificador por meseta [PC:48-50]. **[no se comparó]**.
 - Validación con **6 parches fijos** (semilla 12345) del diente de fuera, **repartidos a partes iguales entre los tercios** del conducto, sea cual sea el muestreo de entrenamiento [TR:93-95, CFG:14]. `--val-patches`, `--seed` y `--third-weights {config,equilibrado,proporcional}` permiten cambiarlo desde la línea de comandos [TR:64-67].
 
@@ -522,26 +513,60 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 **Límites.** La orientación izquierda/derecha del escaneo no se conoce; un conducto de menos de ~30 µm puede desaparecer en las copias a 32 µm.
 
 ---
-## 4. Glosario corto
 
-| Término | Qué es |
-|---|---|
-| **µCT / CBCT** | Dos tipos de tomografía de rayos X. El **µCT** (micro-TC) escanea piezas pequeñas (aquí dientes extraídos) con vóxeles de 16 µm. El **CBCT** (TC de haz cónico) es el que se usa en la consulta, con vóxeles de unos 75 µm y más ruido y borrosidad. |
-| **Vóxel** | El "píxel" 3D: un cubito de la imagen con un valor de gris. Un volumen es un array 3D de vóxeles. 1 µm = 0,001 mm. |
-| **memmap** | `np.memmap`: un array NumPy cuyo contenido vive en un fichero y se lee del disco solo cuando se indexa. Permite recorrer volúmenes de 2,9 GB sin cargarlos enteros en RAM [P:56]. |
-| **Otsu** | Método clásico que elige el umbral que mejor separa dos "montones" de valores en un histograma (fondo y objeto). Aquí solo se usa para definir las anclas de la normalización [P:73-77]. |
-| **Efecto de volumen parcial** | Un vóxel que cubre mitad aire y mitad diente tiene un gris intermedio. Por eso el borde de un objeto se sitúa en el punto medio (0,5 tras normalizar). |
-| **Ápice / foramen** | El **ápice** es la punta de la raíz; el **foramen apical** es el agujero por donde el conducto sale al hueso. |
-| **Orificio / cámara pulpar** | La **cámara pulpar** es la sala dentro de la corona de la que salen los conductos; su suelo tiene la **entrada (orificio)** de cada conducto. |
-| **Etiqueta blanda** | Etiqueta con valores entre 0 y 1 (la fracción de cada vóxel que es conducto), en vez de solo 0 o 1. Sale de reducir la máscara de 16 µm a 75 µm promediando [SIM:342]. |
-| **PSF** | *Point spread function*: cómo "esparce" el escáner un punto. Un punto se ve como una mancha; modelarla como una gaussiana de anchura σ es la forma más simple de simular la borrosidad [SIM:325-329]. |
-| **Dice** | Medida de solapamiento entre dos máscaras: 2·|A∩B| / (|A|+|B|). 1 = idénticas; 0 = sin solapamiento [MET:17-20]. |
-| **HD95** | Distancia de Hausdorff al percentil 95, en mm: cuánto se separan los bordes de dos máscaras sin contar el 5 % de puntos más lejanos [MET:23-28]. |
-| **U-Net** | Red convolucional con forma de "U": codificador que reduce la imagen, decodificador que la recupera y conexiones de salto entre ambos [NET:13-43]. |
-| **Logit** | Salida de la red antes de la sigmoide; `sigmoide(logit)` es la probabilidad de "conducto". |
-| **Dejar un diente fuera** | *Leave-one-tooth-out*: validar en un diente que no se ha usado para entrenar, para evitar fugas de datos [TR:5-6]. |
-| **Transformada de distancia (EDT)** | Para cada vóxel de una máscara, la distancia a la pared más cercana; en un conducto da su "radio local" [P:144]. |
-| **Hounsfield (HU)** | Escala de densidad en TC (aire ≈ −1000, agua ≈ 0). Que los grises del CBCT de Isa sean HU reales **no está verificado** [Y:6]. |
+### 3.14 Prueba de extremo a extremo con el CBCT de Isa (hecha el 2026-10-28)
+
+**Es una prueba de montaje, no un resultado.** La red se entrenó con solo 3 dientes y la segmentación de Isa es un borrador (`Status: inprogress`) que además incluye la cámara pulpar (24 de sus 46 mm³).
+
+Qué se hizo (script `2_UNet/prueba_cbct_isa.py`; salida en `1_Data_Validation/results/prueba_cbct_isa/`, ignorada por git):
+1. **Modelo de prueba:** `sim_canal_montaje_modelo_de_prueba_3dientes_1000it` (3 dientes, ninguno fuera, 1000 iteraciones, muestreo equilibrado, semilla 33; 1597 s). Lleva un `MODELO_DE_PRUEBA.txt`. No hay validación porque no queda ningún diente fuera.
+2. **Gris:** las unidades crudas del CBCT de Isa (aire = −1000) son las del simulador. La red ve cada ventana normalizada con los percentiles 1 y 99,5 de esa ventana (`normalize_patch`). Comparación medida: mediana del p1 −330 (real) frente a −409 (simulado); del p99,5 2036 frente a 1984; cuantiles del gris que entra a la red (5/25/50/75/95 %) 0,04/0,13/0,31/0,57/0,90 en el real y 0,04/0,17/0,32/0,59/0,91 en 60 parches simulados. Coinciden bastante. Diferencia: los parches simulados nunca tienen un fondo tan plano como el aire (−1000) en el borde, pero en la caja de Isa casi no hay aire (0,06 % de los vóxeles).
+3. **Caja:** segmentación de Isa + 3 mm = 291 × 227 × 193 vóxeles (21,8 × 17,0 × 14,5 mm); para inferir se añadieron 32 vóxeles de contexto. Ventanas de 128³ con paso 64 (50 %): 80 ventanas, 6 s en la GPU.
+4. **Orientación:** el esmalte está en z alto, como en el simulador. Los conductos de Isa se inclinan 12–29° respecto a z; el simulador solo entrena con el eje largo en z, así que esto puede perjudicar [no verificado cuánto].
+
+Números (umbral 0,5; vóxel 0,075 mm):
+
+| Zona | Volumen red | Volumen Isa | Solape | Dice | HD95 |
+|---|---|---|---|---|---|
+| Todo | 23,3 mm³ | 46,4 mm³ | 6,7 mm³ | 0,19 | 5,1 mm |
+| Solo conducto (z < 511) | 19,5 mm³ | 20,3 mm³ | 6,5 mm³ | 0,33 | 5,3 mm |
+| Solo cámara (z ≥ 511) | 3,8 mm³ | 26,1 mm³ | 0,2 mm³ | 0,01 | 4,5 mm |
+
+- La zona de cámara sale mal por diseño: la red solo aprendió conductos. El corte en z = 511 lo fijé a ojo mirando los componentes de Isa [no verificado clínicamente].
+- **Por conducto de Isa** (Dice y cobertura frente a los trozos de predicción que lo tocan): 4,2 mm³ → Dice 0,57, la red cubre el 44 %, HD95 0,77 mm; 4,4 mm³ → Dice 0,59, cubre el 45 %, HD95 0,34 mm; 11,5 mm³ (el conducto en forma de ranura, el más grande) → Dice 0,37, cubre el 23 %, HD95 0,86 mm. La red llega a casi la misma altura que Isa en cada conducto (9,9 de 10,8 mm; 10,2 de 10,8; 8,8 de 9,6).
+- **Falsos positivos:** 16,6 mm³ de la predicción caen fuera de la segmentación de Isa, repartidos en 48 componentes. Dos son grandes (6,9 y 1,8 mm³) y en las imágenes están junto a la superficie de la raíz y en un diente vecino. Podrían ser conductos reales del diente vecino que Isa no marcó [no verificado].
+- **Longitud del conducto:** no calculada. Todavía no hay código de línea central. Solo se da la extensión en z de cada componente.
+
+Qué funcionó: el montaje de extremo a extremo (leer el CBCT, normalizar, ventanas, fusionar, comparar). La red encuentra los conductos redondos de la raíz mesial casi donde los marca Isa (cortes `axial_3_z497.png` y `axial_2_z464.png`). Qué no: la ranura del conducto más grande solo la detecta en sus extremos, y hay muchos falsos positivos. La red predice una máscara más fina que la de Isa (en las imágenes el amarillo queda dentro del verde): no se puede saber cuál es la correcta.
+
+¿La segmentación de Isa cubre el conducto entero? En los tres conductos va de z = 366 (o 382) a z = 509, unos 10 mm, y en los cortes se ve continua; en el longitudinal acaba cerca de la punta de la raíz. Es un borrador, y lo que se ve **no confirma** que llegue al foramen ni que sea exacta: [no verificado con experto]. El conducto grande acaba 1,2 mm más arriba que los otros dos.
+
+Ficheros: `resultados.json`, `prediccion_*.npy/.nrrd`, `axial_1_z417.png`, `axial_2_z464.png`, `axial_3_z497.png`, `longitudinal.png`, `LEEME.txt`.
+
+---
+
+### 3.15 Medición de longitud, curvatura, ángulos y diámetros
+
+Hecha el 2026-11-17/19 y validada con conductos artificiales; todo (método, código, error, resultados en los 3 dientes y límites) está en [MEDICION.md](MEDICION.md).
+
+
+---
+
+## 4. Las decisiones de diseño, de un vistazo
+
+Cada una se explica a fondo en el apartado indicado; esta tabla es solo el índice para poder contárselo a Luis en un minuto.
+
+| Decisión | En una frase | Detalle |
+|---|---|---|
+| Normalizar con dos anclas y umbral 0,5 | El borde real de un objeto emborronado cae a mitad entre el gris del aire y el del tejido (efecto de volumen parcial) | 3.1, 3.2 |
+| Etiquetas definitivas a 16 µm | A 64 µm se pierden conductos finos; a 32 µm sale casi lo mismo (Dice 0,97–0,99); se bajan a 75 µm después como etiqueta blanda (fracción de conducto por vóxel) | 3.3, 3.6 |
+| Etiqueta **solo conducto**, sin cámara | Decisión de Claudia; el corte en el plano del orificio es una convención de ±0,1 mm que la red no puede adivinar | 3.5, 3.6 |
+| **Simular** un CBCT en vez de registrar | No hay pares µCT–CBCT del mismo diente ni máscaras de experto sobre CBCT; así la etiqueta nace alineada. Riesgo: que la red aprenda «CBCT falsos» y falle en uno real | 3.6, 3.7, 3.14 |
+| U-Net propia (`CanalUNet3D`), no la de Pulpy3D | Las de Pulpy3D piden un vector de posición del parche que viene de su dataloader | 3.9 |
+| Parches de 128³ a 75 µm | Es lo que cabe en la GPU de 16 GB con lote 2; para medir un conducto entero hará falta inferencia por ventanas | 3.6, 3.12 |
+| Muestreo equilibrado por tercios | Antes solo el 13,9 % de los parches se centraba en el ápice; ahora el 31,9 % | 3.6, 3.12 |
+| Repartir por diente, nunca por recortes | Evita la fuga de datos (la red «vería» la respuesta) | 3.8, 3.12 |
+| Ruido casi gaussiano y correlacionado | Es lo que se midió en el CBCT de Isa (el «no gaussiano» inicial era una hipótesis falsa) | 3.7, 5.1 |
 
 ---
 
@@ -552,11 +577,11 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 1. **El diente 51 no se partía por "ruido que abre la pared"**, sino porque el conducto dejaba de estar encerrado en cortes sueltos (z = 361 y 440) y el filtro de longitud mínima tiraba los trozos. La hipótesis inicial del proyecto ("el ruido abre huecos en la pared") **era falsa** [P:116-118]. **[no reproducible desde el repo]**.
 2. **La corrección creó un problema nuevo**: la unión de trozos arrastraba 60.837 motas de 1–10 vóxeles (1,4 mm³) al diente 35. Se corrigió quitándolas antes de unir [P:96-107, P:129]. **[no reproducible desde el repo]**.
 3. **Las "láminas de caries" del diente 35** (3,9 mm³: rayas de 1–2 vóxeles alrededor del agujero de una caries) pasaban todos los filtros porque medían 6 mm de largo; se quitan por grosor (radio inscrito p90 < 0,05 mm) [P:143-147]. La prolongación apical del 35 (5083 vóxeles) y los conductos finos del 51 se conservan al 100 % **[no reproducible desde el repo]**. Efecto secundario conocido: una pieza de 0,37 mm³ de la cámara del 35 se pierde por estar en el mismo grupo que las rayas.
-4. **El ruido del CBCT real es casi gaussiano** (asimetría −0,316, curtosis en exceso 0,173 en dentina; una gaussiana daría 0 y 0) y **muy correlacionado** entre vóxeles vecinos (autocorrelación 0,84) **[reejecutado hoy]** (V4). Esto contradice la hipótesis inicial de "ruido no gaussiano" (CL:11). Solo el esmalte se aparta (asimetría −1,38, curtosis 2,32), pero ahí pesa la estructura. El simulador implementa Poisson filtrado [SIM:331-336], pero tras filtrar es casi gaussiano y reproduce los números reales (V6).
+4. **El ruido del CBCT real es casi gaussiano** (asimetría −0,316, curtosis en exceso 0,173 en dentina; una gaussiana daría 0 y 0) y **muy correlacionado** entre vóxeles vecinos (autocorrelación 0,84) **[reejecutado hoy]** (V4). Esto contradice la hipótesis inicial de "ruido no gaussiano" (CLAUDE.md). Solo el esmalte se aparta (asimetría −1,38, curtosis 2,32), pero ahí pesa la estructura. El simulador implementa Poisson filtrado [SIM:331-336], pero tras filtrar es casi gaussiano y reproduce los números reales (V6).
 5. **El ruido no crece con la densidad**: 61,1 en dentina frente a 58,5 en tejido blando, de ahí el exponente `density_exponent` casi nulo [Y:46].
 6. **La relación µCT→CBCT es lineal**: cociente esmalte/dentina 1,64 en µCT frente a 1,62 en CBCT con aire = −1000 [SIM:289-294].
 7. **El conducto sale al exterior por el ápice y se pierde un tramo corto** (0,06–0,2 mm de hueco visible; la máscara queda a 0,22–0,99 mm de la punta de la raíz) (3.4).
-8. **Los 3 µCT tienen la corona hacia z alto**; el 35 es un molar de dos raíces; 51 y 52 **no están identificados** [CL:17].
+8. **Los 3 µCT tienen la corona hacia z alto**; el 35 es un molar de dos raíces; 51 y 52 **no están identificados**.
 9. **La segmentación de Isa**: una sola etiqueta con 109.890 vóxeles = 46,36 mm³ y **15 componentes** (10 de ≥ 100 vóxeles) y `Segmentation.Status: inprogress` **[reejecutado hoy]** (E-a). Esto confirma lo que CL decía de "46 mm³, 15 componentes", que no había comprobado antes.
 10. **Las redes de Pulpy3D no encajan**: necesitan el vector de posición del parche [UN:18, UN:39, MF:14] (3.9).
 11. **El cuello de botella era el simulador**: la red tardaba 0,28–0,75 s por iteración y la espera al simulador era 5,97 s (prueba del 2026-10-21, `metrics.json` del primer ensayo, ya borrado). Tras pasar la conversión de tipos a la GPU y usar una dilatación separable, `patch()` pasó de ~3 s a 0,46 s, con la dilatación verificada equivalente (E-f) **[reejecutado hoy]**. La espera por iteración quedó en 0,9 s.
@@ -575,31 +600,19 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 - En la exportación a Slicer las máscaras de 32 µm de solo conducto y cámara se solapaban (~2000 vóxeles en el 51 y el 52); la cámara pasó a derivarse como "completa − solo conducto" [X:74-77].
 - Hoy, un script mío imprimía "etiqueta idéntica: True" escrito a mano sin comprobar nada (la comparación CPU/GPU); **no se usa** y la equivalencia CPU/GPU está marcada como no verificada.
 
-### 5.3 Contradicciones entre el código y CLAUDE.md / README (corregidas el 2026-10-28)
-
-1. **Riesgo de sobrescribir las etiquetas finales — CORREGIDO.** `README.md` y `1_Data_Validation/README.md` mandaban ejecutar `preprocess_microct.py ... --downsample 4 --out 1_Data_Validation/results/microct`, que habría pisado `norm.npy`, `canal.npy` e `info.json` finales con una versión a 64 µm y dejado la carpeta incoherente. Ahora ambos README usan el comando seguro; el script escribe por defecto a una carpeta por resolución [P:199-201], aborta si va a pisar etiquetas separadas o una carpeta de otra resolución [P:204-217, P:225] (probado: aborta en 0,8 s y las etiquetas siguen intactas; la salida de prueba a 64 µm fue a `results/microct_64um`, que borré), con `--force` como salida; el `--downsample` por defecto es 1 [P:257]; y el `--out` por defecto ya no depende del directorio de trabajo [P:195].
-2. **"No gaussiano" — CORREGIDO.** `CL:11` decía ruido "no gaussiano"; ahora dice "casi gaussiano" y remite a la medida (`CL:99`, `calibration.json`).
-3. **Docstring del simulador desactualizado — CORREGIDO.** `SIM:1-25` describe ahora `canal_solo_conducto.npy`, el vóxel por diente, la reducción exacta y los ~0,5 s de `patch()`.
-4. **Los centros de los rangos no eran lo calibrado — CORREGIDO (comentarios).** `Y:1-6` y los comentarios de la PSF y de `sd_hu` dicen ahora que los centros se retocaron para que `--check` coincidiera con Isa y cuáles no son el valor medido (PSF 0,1275 frente a ≈ 0,138 medido; `sd_hu` 57,5 frente a 61). Los rangos no se tocaron.
-5. **"Parametrizado por carpeta" tenía un límite — CORREGIDO para el vóxel.** El simulador ya no fija 16 µm (3.6). Falta probarlo con un µCT real de otra resolución.
-6. **CUDA de `requirements.txt` — CORREGIDO.** Ahora `cu130`, como `RD:101` y `CL:28`.
-7. **Métricas pedidas y no implementadas — ACLARADO.** `CL:37` dice ahora que solo están implementados Dice y HD95 por tercios (`MET:8-9`); la distancia al ápice real y el error de cada medida siguen **pendientes**.
-8. **Cifras de rendimiento — CORREGIDAS.** `CL:118` y `CL:158` dan `patch()` ≈ 0,46 s (87 s en CPU) y el bucle de la línea de comandos 1,1–1,8 s; las medidas de hoy son 0,41–0,45 s, 1,0–1,6 s y hasta 11,3 GB de GPU (ver 3.6, rendimiento).
-9. **Código sin usar — CORREGIDO (`flip_z`).** Eliminado el parámetro `flip_z` de `third_map` [MET:31]. `results/microct_full/` (11 GB, del 20 de octubre, resultados del script antiguo; ningún script lo referenciaba) **borrado el 2026-10-28 por orden de Claudia**.
-10. **Resuelto:** `1_Data_Validation/README.md` sí marca lo de Pulpy3D como legado (líneas 3-11); no está desactualizado.
 
 ---
 
 ## 6. Límites y riesgos honestos
 
 **Datos.**
-1. **Solo 3 µCT** (de ~40 en traspaso) y **no está comprobado que 51 y 52 sean molares**; CL dice que el 51 "sale con un solo conducto" [CL:17], pero el análisis del ápice encuentra 3 conductos en él (`info.json`, clave `apice`; 3.4). Toda la ingeniería (parámetros, criterios) se ajustó con esos 3.
-2. **Ninguna máscara hecha por un experto** sobre un µCT. Todo lo llamado "etiqueta" es salida de un algoritmo sin validar; su fiabilidad frente a un experto es **desconocida** [CL:19].
+1. **Solo 3 µCT** (de ~40 en traspaso) y **no está comprobado que 51 y 52 sean molares**; CL dice que el 51 "sale con un solo conducto", pero el análisis del ápice encuentra 3 conductos en él (`info.json`, clave `apice`; 3.4). Toda la ingeniería (parámetros, criterios) se ajustó con esos 3.
+2. **Ninguna máscara hecha por un experto** sobre un µCT. Todo lo llamado "etiqueta" es salida de un algoritmo sin validar; su fiabilidad frente a un experto es **desconocida**.
 3. **Un único CBCT real**, con una segmentación **en curso** (borrador) [E-a]. Solo sirve para calibrar y, con cautela, para una prueba cualitativa. Un solo escáner y un solo paciente: no se conoce cuánto varían los valores calibrados.
-4. **Datos de paciente** (el CBCT): no compartir. Hoy el fichero está en esta máquina del laboratorio (lo leen V4 y E-a); el permiso de tenerlo aquí sigue abierto en CL:45.
+4. **Datos de paciente** (el CBCT): no compartir. Hoy el fichero está en esta máquina del laboratorio (lo leen V4 y E-a); el permiso de tenerlo aquí sigue abierto en CLAUDE.md.
 
 **Algoritmo de etiquetas.**
-5. **Parámetros ajustados con 3 dientes**: 0,13 mm (unión), 0,05 mm (grosor), 0,005 mm³ (motas), 1,5 mm² (orificio) [CL:86]. Con ~40 hay que revisar `avisos` e imágenes.
+5. **Parámetros ajustados con 3 dientes**: 0,13 mm (unión), 0,05 mm (grosor), 0,005 mm³ (motas), 1,5 mm² (orificio). Con ~40 hay que revisar `avisos` e imágenes.
 6. **El ápice podría quedarse ~0,1–0,2 mm corto (sin confirmar; Isa dice que el final de la máscara es correcto, ver 3.4(e))**: la máscara termina donde el conducto deja de estar "encerrado", unos 0,06 mm antes de abrirse al exterior, y hay dentina maciza hasta la punta (3.4). La longitud medida sobre esta máscara es subestimada. Comprobado a ojo en 6 de 7 conductos.
 7. **El orificio es un plano horizontal** [S:226-227]; el suelo de la cámara real es irregular.
 8. **Un conducto fino (< ~30 µm) no se ve a 16 µm**; no se puede saber si existe.
@@ -621,6 +634,7 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 18. Muchos resultados intermedios salen de **scripts de diagnóstico temporales que no están en el repositorio** (marcados "no reproducible desde el repo"); si se quieren conservar hay que copiarlos y parametrizarlos.
 19. No hay pruebas automáticas (`pytest`) del código nuevo; las comprobaciones de este documento son manuales (Apéndice A).
 
+
 ---
 
 ## 7. Estado frente a lo que pidió Luis
@@ -630,30 +644,60 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 | a | Empezar por la normalización y la umbralización, con código aplicable a varios µCT | **Hecha** | `preprocess_microct.py` toma una carpeta o varias con `--all` [P:253-276]. Reproducido en 2 dientes hoy (V2, V3: salida idéntica byte a byte). Solo se ha aplicado a 3 µCT. |
 | b | Generar un CBCT artificial a partir del µCT | **Hecha, con límites** | `simulate_cbct.py` [SIM:272-376]; con los parámetros en el centro reproduce las medidas de Isa (V6). Calibrado con un solo CBCT; que el falso sirva para entrenar una red que funcione en CBCT real **no está demostrado**. |
 | c | Pasárselo a la red de Pulpy para ver qué funciona y que entrena | **Parcial** | Entrena de extremo a extremo (V8; `metrics.json` de 3 vueltas, la pérdida baja de 1,55 a ~1,0). **No con la red de Pulpy**: se escribió `CanalUNet3D` que reutiliza solo su bloque [NET:10, NET:22], porque las de Pulpy piden un vector de posición y devuelven la sigmoide [UN:18, UN:39, UN:63, MF:14]. "Ver qué funciona": sin conclusiones de calidad. **Hay que confirmar con Luis si esta desviación vale.** |
-| d | Cuando funcione, usar el resto de dientes (~40, en traspaso) | **Pendiente** | Los µCT no están todavía [CL:17]. La infraestructura lo admite: dataset por carpetas [DS:37-40]; por diente, preprocesado + separación ≈ 129 + 82 s (V2, V5) y ~7,7 GB en `results/microct` (23 GB / 3 dientes, `du`). Extrapolado a 40 dientes: ~2,5 h y ~300 GB, **no medido**. |
-| e | Probar CPU contra GPU y dejar el entorno en la máquina del laboratorio | **Parcial** | Entorno `tfm` presente en esta máquina (la del laboratorio, según CL:27 **[inferido: el propietario de los ficheros es `BO-MOBIOS05`]**), con RTX 5080 y torch 2.14.1+cu130 (V1, V8). CPU frente a GPU medido hoy: multiplicación de matrices 4000² 0,13 s frente a 0,063–0,070 s (V1; `GPU:4-14`, una sola llamada sin calentamiento, poco representativo) y un parche del simulador 87,4 s frente a 0,46 s (≈190×). El **entrenamiento en CPU no se probó** y el script lo impide [TR:80]. Falta congelar el entorno (`conda env export` o lista de versiones fijas). |
-| f | Segunda red que dé el diámetro; proponemos sustituirla por un cálculo geométrico (línea central + distancia a la pared) | **Pendiente** | No hay código de línea central ni de medidas (búsqueda de `skeleton`, `centerline`, `medial_axis` en los `.py`: solo aparece en una nota de `MET:8-9`). Hay ingredientes: transformada de distancia [P:144, S:123]. El diámetro de referencia saldría del µCT por geometría [CL:14]. **Hay que confirmar con Luis que sustituir la red por geometría le parece bien.** |
+| d | Cuando funcione, usar el resto de dientes (~40, en traspaso) | **Pendiente** | Los µCT no están todavía. La infraestructura lo admite: dataset por carpetas [DS:37-40]; por diente, preprocesado + separación ≈ 129 + 82 s (V2, V5) y ~7,7 GB en `results/microct` (23 GB / 3 dientes, `du`). Extrapolado a 40 dientes: ~2,5 h y ~300 GB, **no medido**. |
+| e | Probar CPU contra GPU y dejar el entorno en la máquina del laboratorio | **Parcial** | Entorno `tfm` presente en esta máquina (la del laboratorio, según CLAUDE.md **[inferido: el propietario de los ficheros es `BO-MOBIOS05`]**), con RTX 5080 y torch 2.14.1+cu130 (V1, V8). CPU frente a GPU medido hoy: multiplicación de matrices 4000² 0,13 s frente a 0,063–0,070 s (V1; `GPU:4-14`, una sola llamada sin calentamiento, poco representativo) y un parche del simulador 87,4 s frente a 0,46 s (≈190×). El **entrenamiento en CPU no se probó** y el script lo impide [TR:80]. Falta congelar el entorno (`conda env export` o lista de versiones fijas). |
+| f | Segunda red que dé el diámetro; proponemos sustituirla por un cálculo geométrico (línea central + distancia a la pared) | **Hecha sobre los 3 µCT (2026-11-17/19); pendiente sobre la predicción de la red** | Línea central, longitud, curvatura, ángulos y diámetros, validados con conductos artificiales: [MEDICION.md](MEDICION.md). Falta aplicarlo a la salida de la red en CBCT. **Hay que confirmar con Luis que sustituir la red por geometría le parece bien.** |
+
 
 ---
 
-## 8. Lo que falta por hacer, en orden
+## 8. Uso final para el dentista y lo que implica para la segmentación (aclarado el 2026-11-18 y 19)
 
-*(Los responsables son lo que se deduce de CLAUDE.md; **[no verificado]** quién hace qué en la práctica.)*
+**Flujo previsto.** El dentista introduce el **CBCT entero** (todos serán de **75 µm**, campo pequeño, como los de Isa) y pide el **36 o el 46** (el primer molar inferior). El sistema devuelve la máscara de los conductos de **solo ese diente**, sin los de los vecinos, y después se miden ([MEDICION.md](MEDICION.md)).
 
-1. **Claudia**: revisar en 3D Slicer `results/para_slicer/` (instrucciones en `LEEME.txt`): ¿el plano del orificio cae donde un endodoncista pondría la entrada?, ¿queda cámara o caries dentro de "solo conducto"?, ¿acaba el conducto donde se ve? Decidir qué tipo de diente son 51 y 52. **Hasta entonces no se entrena en serio.**
-2. **Claudia → Ana**: pedir una máscara del canal hecha por un experto sobre al menos algunos µCT, después de enseñarle lo que ya se puede hacer [CL:44]. Sin esto no hay forma de saber cuánto se parece la etiqueta a la "verdad".
-3. **Luis (o quien haga el traspaso)**: los ~40 µCT y el volumen del 58 (copia mal hecha) [CL:42]. Comprobar su formato: el simulador ya lee el vóxel de cada diente (probado con una copia a 32 µm), pero la separación del conducto y el resto se han probado solo con 3 dientes de 16 µm.
-4. **Luis**: confirmar (c) y (f) de la sección 7; autorizar tener el CBCT de Isa en la máquina del laboratorio [CL:45].
-5. **Isa**: terminar su segmentación (hoy "en curso") o aportar más CBCT (idealmente de otro escáner) para calibrar.
-6. **Código, con el material actual**: repetir `preprocess_microct.py` + `split_canal.py` + `export_slicer.py` por cada diente nuevo, revisar `avisos` e imágenes y volver a barrer los parámetros con los ~40.
-7. **Código**: (el sesgo de muestreo hacia la corona ya está corregido; en una vuelta de 1000 iteraciones no mejoró el Dice apical final, falta repetirlo con más semillas); construir el **volumen completo simulado** (a 32 µm para que quepa) con inferencia por ventanas; medir la **distancia al ápice real** y el **error de cada medida** con línea central + distancia a la pared (petición f).
-8. **Código**: entrenar en serio con validación por dientes (k pliegues y un test aparte): comparar `weight_mode` (`band`/`chamber`/`none`) y `chamber_fill`, con y sin simulador; añadir planificador y parada temprana; guardar el mejor modelo.
-9. **Código y Claudia**: evaluar en el CBCT real de Isa (etapa 4); como su segmentación es un borrador, la comparación es solo cualitativa hasta que esté terminada.
-10. **Limpieza**: arreglar las contradicciones de 5.3 (sobre todo el comando del README), congelar el entorno, copiar al repo los scripts de diagnóstico que se quieran conservar, escribir pruebas automáticas.
+**Lo que hay hoy no sirve para eso.**
+- Los CBCT reales de Isa (comprobado mirando 3 casos) son volúmenes de **41,6 × 50 × 51,6 mm con 4–6 dientes en fila**, la arcada inclinada en el volumen y, en uno de los casos, artefactos metálicos fuertes (rayas de una restauración).
+- El simulador pone **un diente aislado sobre textura aleatoria**: no hay dientes vecinos, ni cortical, ni artefactos (3.6, límite 10).
+- Los `last.pt` de `2_UNet/results/entrenamientos_sim/` son **pruebas de montaje** (3 dientes, ≤ 1000 iteraciones). En la prueba con Isa (3.14) la red segmentó 16,6 mm³ fuera de lo marcado por Isa: no sabe distinguir un diente de otro.
+
+**Diseño propuesto, en dos etapas (pendiente de que Claudia y Luis lo aprueben).**
+1. **Localizar el diente y recortar.** Opción A, la más simple: el dentista hace **un clic sobre el diente** (en cualquier corte del visor, por ejemplo sobre la corona) y el programa recorta una caja de unos 25–30 mm que cubre de la corona al ápice. Opción B: un modelo que numera los dientes (FDI) de forma automática y el dentista solo confirma. Se empezaría por A, que no necesita ningún modelo nuevo.
+2. **Segmentar los conductos en el recorte, con el diente pedido marcado.** El marcador es una entrada extra de la red (el clic como una mancha gaussiana, o la máscara del diente) y se entrena con escenas simuladas **con vecinos**.
+
+**Lo que habría que cambiar en el simulador:** colocar otros µCT junto al diente objetivo (la etiqueta es solo del objetivo), añadir hueso y cortical, artefactos metálicos y **orientación variable** (los conductos de Isa se inclinan 12–29° respecto a z y el simulador solo entrena con el eje largo en z). Con 3 µCT habrá poca variedad de vecinos; ~40 están en traspaso.
+
+**Fuentes públicas** (búsqueda web del 2026-11-18/19; **no se ha descargado nada ni se ha comprobado su contenido real**):
+
+| Fuente | Qué contiene | Resolución / licencia | Para qué serviría aquí |
+|---|---|---|---|
+| **ToothFairy2** | 480 CBCT, 42 clases (10 estructuras + 32 dientes con «extensión de la notación FDI» [la existencia de una etiqueta por diente es inferencia mía: 10 + 32 = 42]) | ~0,3 mm (según su registro de cambios); CC BY-NC-SA 4.0 (**no comercial**); requiere cuenta; el repositorio del benchmark da el código de nnU-Net, **no encontré pesos públicos** | Localizar e identificar el diente (etapa 1 del diseño) |
+| **ToothFairy3** | 582 volúmenes (532 con etiquetas), 77 clases, **incluye la cavidad pulpar de los 32 dientes**; un tercer conjunto de otro escáner | requiere cuenta; licencia **no comprobada** | Lo mismo, y quizá una segmentación gruesa de pulpa como comparación |
+| **Pulpy3D** (MICCAI 2024; el proyecto antiguo, **descartado** por decisión previa) | 443 escáneres de mandíbula con pulpa y **pulpa por instancia de diente** (su `dataset.json` mapea 36 → 7 y 46 → 15) | enlace a Google Drive; resolución y licencia **no indicadas**; una reseña del paper dice que lo público «solo contiene escaneos parciales de dientes superiores» [no verificado] | Localizar el 36/46 si se decide reutilizarlo |
+| **CTooth+** | etiquetas de **diente**, no de pulpa; 22 volúmenes etiquetados | no comprobadas | Poco |
+
+Ninguna llega a 75 µm: sirven, como mucho, para **localizar e identificar el diente**, no para aprender conductos finos, que es lo que aporta el µCT. Usar Pulpy3D solo para eso no es lo mismo que usar su red o sus datos de conductos (lo descartado), pero **es una decisión de Claudia y Luis, pendiente**.
+
 
 ---
 
-## 9. Dudas y cosas que no he podido comprobar
+## 9. Lo que falta por hacer, en orden
+
+*(Los responsables se deducen del contexto; **[no verificado]** quién hace qué en la práctica.)*
+
+1. **Claudia**: revisar en 3D Slicer `results/para_slicer/` (instrucciones en `LEEME.txt`): ¿el plano del orificio cae donde un endodoncista pondría la entrada?, ¿queda cámara o caries dentro de «solo conducto»?, ¿acaba el conducto donde se ve?, ¿cuántos conductos tiene cada diente?, ¿qué tipo de diente son 51 y 52? **Hasta entonces no se entrena en serio.**
+2. **Claudia → Ana**: pedir una máscara del canal hecha por un experto sobre algunos µCT, **después de enseñarle lo que ya se puede hacer**. Sin esto no hay forma de saber cuánto se parece la etiqueta a la «verdad».
+3. **Luis (o quien haga el traspaso)**: los ~40 µCT y el volumen del 58 (copia mal hecha). Comprobar su formato: el simulador ya lee el vóxel de cada diente (probado con una copia a 32 µm), pero la separación del conducto y el resto se han probado solo con 3 dientes de 16 µm.
+4. **Luis**: confirmar (c) y (f) del apartado 7, la elección de definiciones de medida ([MEDICION.md](MEDICION.md), 12.2), el diseño del apartado 8 y si se puede usar Pulpy3D o ToothFairy3 para localizar el diente; autorizar tener el CBCT de Isa en la máquina del laboratorio.
+5. **Isa**: decir qué diente (36 o 46) hay en cada caso y dónde, para poder evaluar; terminar sus segmentaciones (hoy «en curso») o aportar más CBCT, idealmente de otro escáner.
+6. **Medición** ([MEDICION.md](MEDICION.md), 12.2): etapa 3 (medir los 3 dientes a 16, 32, 64 y 75 µm con etiqueta blanda); definiciones.
+7. **Segmentación del uso final** (apartado 8): localizador (clic) + recorte; simulador con dientes vecinos, hueso, artefactos y orientación variable; entrada extra de «diente objetivo»; entrenar en serio con validación por dientes (k pliegues y un test aparte), comparando `weight_mode` (`band`/`chamber`/`none`) y `chamber_fill`, con planificador y parada temprana, guardando el mejor modelo.
+8. **Evaluación**: construir el **volumen completo simulado** (a 32 µm para que quepa) con inferencia por ventanas; medir la **distancia al ápice real** y el **error de cada medida** sobre la predicción frente al µCT; evaluar en los CBCT de Isa (la comparación es solo cualitativa mientras sus segmentaciones sean borradores).
+9. **Limpieza**: congelar el entorno (`conda env export` o versiones fijas), copiar al repo los scripts de diagnóstico que se quieran conservar, escribir pruebas automáticas.
+
+
+---
+
+## 10. Dudas, cosas no comprobadas y preguntas abiertas
 
 **No verificado en absoluto:**
 - Que 3D Slicer abra los NRRD exportados (solo los releí con SimpleITK).
@@ -678,6 +722,52 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 3. ¿La etiqueta debe llegar hasta el foramen? Isa dice (informal) que el final actual de la máscara ya es el foramen; solo vio el diente 52; falta confirmarlo con el 35 (punta partida) y el 51.
 4. (Resuelto en el código) El muestreo ya reparte a partes iguales entre tercios; en una vuelta de 1000 iteraciones no se vio mejora del Dice apical final: ¿vale la pena repetirlo con varias semillas antes de decidir el muestreo definitivo?
 
+**Preguntas abiertas para quien corresponda** (todas en este único sitio; las de definiciones de medida se explican en [MEDICION.md](MEDICION.md), 12.2):
+
+*Luis*
+1. **Eje de referencia** de la inclinación: ¿el eje largo del diente?, ¿el tramo recto del conducto?, ¿ambos? ¿Hay que reportar κ (mm⁻¹) además del ángulo?
+2. **¿Qué precisión basta?** (longitud en mm o %, ángulo en grados). Chen justifica ±0,6 mm porque las limas vienen en pasos de 21, 25, 28 y 31 mm (p. 7): ¿es esa la vara de medir?
+3. ¿La red de segmentación es **obligatoria** aunque la vía analítica baste, o sirve como prueba de concepto? Si la vía analítica no llega a la precisión, ¿acepta entrenar con las medidas del µCT (plan B) en lugar de medir a mano?
+4. ¿Hay fecha o criterio para la **máscara de expertos sobre el µCT** (Ana) y para el resto de µCT (~40)? Cambia el valor de todo lo medido.
+5. ¿Se puede usar el CBCT de Isa en la máquina del laboratorio (datos de paciente)?
+6. ¿Se puede usar Pulpy3D o ToothFairy3 para localizar el diente (apartado 8)?
+
+*Isa*
+1. **¿Qué ángulo usan en clínica?** ¿Schneider sobre periapical, o la curvatura en otro plano? ¿Qué se considera conducto «muy curvado»?
+2. **¿Hasta dónde mide?** Foramen apical (dijo que sí para el 52): ¿también para el 35 y el 51? ¿Se resta 0,5 mm?
+3. **¿Qué longitud importa?** ¿La del conducto curvo (arco) o la de trabajo desde un punto de referencia de la corona?
+4. **Los 11 casos** (`Isa_caso00…10`): Claudia confirmó el 2026-11-19 que el diente de interés es el **primer molar**; falta saber **si es el 36 o el 46 y dónde está** en cada caso. ¿Sus segmentaciones incluyen la cámara pulpar? ¿Por qué la carpeta del caso 3 trae una segmentación sobre la imagen del caso 4, y de dónde sale `Isa_caso00`?
+5. ¿Puede **medir a mano** longitud y ángulo en una muestra de casos (y, si se puede, otra persona también) para tener una referencia?
+6. ¿Los conductos del 35 (punta partida) y del 51 se ven como ella los marcaría? Solo vio las imágenes del 52.
+
+*Ana:* una máscara del canal hecha por un experto sobre algunos µCT.
+
+
+---
+
+## 11. Historial de cambios
+
+**2026-10-28 (versión original de este documento → cambios posteriores el mismo día; las citas de línea de los apartados 3.x están actualizadas a esa fecha).**
+1. **El preprocesado ya no puede sobrescribir las etiquetas finales.** `preprocess_microct.py` escribe por defecto en `results/microct` solo a 16 µm; con otra resolución va a `results/microct_32um`, `microct_64um`… [P:195-201]; se niega a escribir en una carpeta con etiquetas separadas o hecha con otra resolución salvo con `--force` [P:204-217, P:225]; el `--downsample` por defecto pasa de 4 a 1 [P:257]; la salida ya no depende del directorio de trabajo. Probado: el comando antiguo de los README aborta en 0,8 s y la prueba a 64 µm va a su propia carpeta (que borré después). Los dos README están corregidos.
+2. **Vóxel por diente.** El simulador lee el vóxel de cada `info.json` y calcula el tamaño del bloque (`crop_size`) en vez de suponer 16 µm [SIM:213-218]. Con los interruptores en modo antiguo, el resultado es **idéntico** al de antes (diferencia máxima 0,0 en imagen, etiqueta blanda y pesos; 12 parches) y con una copia a 32 µm da el mismo parche físico (3.6).
+3. **Reducción a 75 µm exacta.** Sustituye las ventanas solapadas de 106 µm por cajas exactas de 75 µm [SIM:101-126]. Efecto sobre la calibración contra Isa: despreciable (3.6).
+4. **Muestreo por tercios.** Los parches se centran a partes iguales en los tercios apical, medio y coronal del conducto [SIM:238-269]. Apical: 13,9 % → 31,9 % de los centros. Efecto sobre el entrenamiento: **inconcluso** con 200 iteraciones (mitad de los entrenamientos sin despegar) y, con 1000 iteraciones en una vuelta y una semilla, **mismo Dice apical final** (0,58) con convergencia más rápida del equilibrado (3.12).
+5. **Contradicciones entre el código y la documentación:** corregidas (entre ellas, el comando de los README que habría pisado las etiquetas finales).
+6. **Scripts de diagnóstico copiados** a `analysis/microct/diagnostico/`, parametrizados, con `README.md` y probados.
+7. **Comentario de Isa** sobre las imágenes del final del conducto (informal, relatado por Claudia): la máscara termina donde ella pondría el foramen, **pero solo vio el diente 52** (3.4(e)).
+
+**2026-11-17.**
+- **Datos CBCT reales reordenados** con `analysis/cbct_real/ordenar_cbct_75um.py`: `Isa_caso00` (el CBCT que se usaba, antes `Isa_caso01`) y `Isa_caso01…10` (entrega de WeTransfer del 9–11 nov 2026). Mapeo y hashes en `CBCT_75um/mapeo_renombrado.csv` (se deshace con `--deshacer`). Casos 5, 9 y 10 solo con DICOM; todas las segmentaciones están `inprogress` (borradores).
+- **Medición analítica** del conducto en los 3 µCT: [MEDICION.md](MEDICION.md).
+- **Literatura** de 10 papers: [LITERATURA.md](LITERATURA.md).
+
+**2026-11-18 y 19.**
+- **Corregido un fallo mío en la regla del diámetro** y rehechas las figuras de control (detalle en [MEDICION.md](MEDICION.md), apartados 7.2 y 11): los diámetros publicados antes del 2026-11-18 no valen.
+- **Una lectura apresurada retirada:** dos trozos de conducto sin línea en el diente 35 se habían interpretado como «posible segundo conducto distal»; mirados en el corte axial son partes de una sola luz ancha partida por un agujero de la máscara (MEDICION.md, 10.4).
+- **Uso final aclarado** (apartado 8): CBCT entero → solo el 36 o el 46; todos los CBCT serán de 75 µm.
+- **Reorganización de la documentación** (2026-11-19): `GUIA_PARA_CLAUDIA.md` → [GUIA.md](GUIA.md); `RESUMEN_PROYECTO.md` → este documento; `MEDIDAS_ETAPA1.md` y la parte de plan de `PLAN_MEDICION_Y_SEGMENTACION.md` → [MEDICION.md](MEDICION.md); la parte de papers de ese plan → [LITERATURA.md](LITERATURA.md); `1_Data_Validation/ORGANIZACION.md` (legado de Pulpy3D) eliminado (sigue en el historial de git).
+
+
 ---
 
 ## Apéndice A. Cómo reproducir cada número
@@ -691,9 +781,9 @@ Cada vuelta: 200 iteraciones ≈ 340 s. El Dice vale 0 hasta la iteración 100 y
 | V1 | `python test_gpu.py` (dos veces) | CPU 0,1326 / 0,1297 s; GPU 0,0626 / 0,0700 s |
 | V2 | `python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_52 --downsample 1 --out <tmp>` y comparar con `results/microct/Diente_52` | canal.npy y norm.npy idénticos byte a byte; volumen 36,884502 mm³; 129,3 s (incluye la comparación) |
 | V3 | igual con `Diente_51 --downsample 2` frente a `results/microct_32um/Diente_51` | idéntico; 23,037843 mm³; 24,5 s (incluye la comparación) |
-| V4 | `python 1_Data_Validation/analysis/microct/calibrate_cbct.py "1_Data_Validation/datasets/CBCT_75um/Isa_caso01/1 3D CBCT Image Set.nrrd" --seg "1_Data_Validation/datasets/CBCT_75um/Isa_caso01/Segmentation.seg.nrrd" --out <tmp>` | `calibration.json` idéntico al guardado; 9,9 s |
+| V4 | `python 1_Data_Validation/analysis/microct/calibrate_cbct.py "1_Data_Validation/datasets/CBCT_75um/Isa_caso00/CBCT.nrrd" --seg "1_Data_Validation/datasets/CBCT_75um/Isa_caso00/Segmentation.seg.nrrd" --out <tmp>` | `calibration.json` idéntico al guardado; 9,9 s |
 | V5 | `python 1_Data_Validation/analysis/microct/split_canal.py 1_Data_Validation/results/microct/Diente_52` (copia previa de `info.json` y hash SHA-256 de los `.npy`) | hashes y `info.json` idénticos; 81,7 s (incluye los hashes) |
-| V6 | `python 1_Data_Validation/analysis/microct/simulate_cbct.py <las 3 carpetas results/microct/Diente_XX> --check --center --n 36 --seed 1 --calibration 1_Data_Validation/results/cbct_calibration/Isa_caso01/calibration.json` | tabla de 3.6(d) (versión del 2026-10-28, con reducción exacta y muestreo proporcional en `--check`); 59 s |
+| V6 | `python 1_Data_Validation/analysis/microct/simulate_cbct.py <las 3 carpetas results/microct/Diente_XX> --check --center --n 36 --seed 1 --calibration 1_Data_Validation/results/cbct_calibration/Isa_caso00/calibration.json` | tabla de 3.6(d) (versión del 2026-10-28, con reducción exacta y muestreo proporcional en `--check`); 59 s |
 | V7 | `python .../simulate_cbct.py <3 carpetas> --n 6 --seed 0 --out <tmp>` | 1,0–1,6 s por parche (con guardado), pico 11,3 GB (2026-10-28) |
 | V8 | `cd 2_UNet` y `python train_sim.py -c configs/sim_canal.yml --holdout Diente_52 --iterations 30 --tag verif` | 49,4 s, 1,65 s por it., 10,74 GB, 5,65 M parámetros (carpeta borrada después) |
 

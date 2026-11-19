@@ -23,7 +23,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("--results", type=Path, default=HERE.parents[2] / "results" / "microct")
-ap.add_argument("--calibracion", type=Path, default=HERE.parents[2] / "results" / "cbct_calibration" / "Isa_caso01" / "calibration.json")
+ap.add_argument("--calibracion", type=Path, default=HERE.parents[2] / "results" / "cbct_calibration" / "Isa_caso00" / "calibration.json")
 ap.add_argument("--dientes", nargs="*", default=["Diente_35", "Diente_51", "Diente_52"])
 ap.add_argument("--n", type=int, default=36)
 ap.add_argument("--seeds", type=int, nargs="*", default=[1, 2])

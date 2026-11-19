@@ -1,6 +1,6 @@
 """Grosor (radio inscrito) de los grupos y de las piezas de una máscara de conducto, y motas sueltas.
 
-Reproduce el análisis de RESUMEN_PROYECTO.md (apartado 3.3) que llevó al filtro de grosor `--min-thick-mm 0.05`:
+Reproduce el análisis de PROYECTO.md (apartado 3.3) que llevó al filtro de grosor `--min-thick-mm 0.05`:
 las rayas de una caries tienen radio p90 ≤ 0,03 mm y fracción de vóxeles a < 40 µm de la pared ≈ 1; los conductos, ≥ 0,07 mm.
 
     python grosor_piezas.py --resultados results/microct [--mascara canal_completo.npy] [--gap-mm 0.13]

@@ -1,6 +1,6 @@
 """Simulador con etiqueta solo-conducto: relleno de la cámara, franja de "ignorar" y alineación imagen-etiqueta.
 
-Reproduce lo de RESUMEN_PROYECTO.md (apartados 3.6 y 3.5 de CLAUDE.md "Simulador con la etiqueta nueva"):
+Reproduce lo de PROYECTO.md (apartados 3.5 y 3.6):
   (1) con pulpa fija a 100 HU y hueso a 900 HU, sin ruido: gris medio del conducto, de la cámara y del fondo lejos del
       diente, y fracción del parche con peso 0 según `labels.weight_mode` (band / chamber / none);
   (2) alineación: con desenfoque y ruido apagados y el conducto como aire, la correlación entre la imagen y la etiqueta

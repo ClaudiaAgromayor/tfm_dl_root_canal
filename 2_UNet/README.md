@@ -2,7 +2,7 @@
 
 Entrenamiento de UNet 3D, Attention UNet y variantes para segmentar pulpa y nervio alveolar inferior (IAN) en CBCT.
 
-El código parte del framework de entrenamiento de Pulpy3D (su modelo de seeding está en [Pulpy3D-Seed](https://github.com/mahmoudgamal0/Pulpy3D-Seed)), que a su vez se basa en el ToothFairy Challenge (MICCAI 2023) y en [alveolar_canal](https://github.com/AImageLab-zip/alveolar_canal) de AImageLab. Viene de `1_Data_Validation` con los errores ya corregidos (ver `../1_Data_Validation/ORGANIZACION.md`, sección 4).
+El código parte del framework de entrenamiento de Pulpy3D (su modelo de seeding está en [Pulpy3D-Seed](https://github.com/mahmoudgamal0/Pulpy3D-Seed)), que a su vez se basa en el ToothFairy Challenge (MICCAI 2023) y en [alveolar_canal](https://github.com/AImageLab-zip/alveolar_canal) de AImageLab. Viene de `1_Data_Validation` con los errores ya corregidos (la lista estaba en `1_Data_Validation/ORGANIZACION.md`, eliminado el 2026-11-19; sigue en el historial de git).
 
 ---
 

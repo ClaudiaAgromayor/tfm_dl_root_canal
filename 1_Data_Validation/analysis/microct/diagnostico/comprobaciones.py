@@ -1,4 +1,4 @@
-"""Comprobaciones pequeñas y rápidas del simulador, las métricas y los datos reales (las "E-x" del RESUMEN_PROYECTO.md).
+"""Comprobaciones pequeñas y rápidas del simulador, las métricas y los datos reales (las "E-x" del PROYECTO.md).
 
     python comprobaciones.py [--que isa muestreo ventanas ganancia_ruido conservacion dilatacion semilla tercios]
     (sin --que ejecuta todas)
@@ -26,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 ap = argparse.ArgumentParser()
 ap.add_argument("--que", nargs="*", default=["isa", "muestreo", "ventanas", "ganancia_ruido", "conservacion", "dilatacion", "semilla", "tercios"])
 ap.add_argument("--results", type=Path, default=HERE.parents[2] / "results" / "microct")
-ap.add_argument("--isa", type=Path, default=HERE.parents[2] / "datasets" / "CBCT_75um" / "Isa_caso01" / "Segmentation.seg.nrrd")
+ap.add_argument("--isa", type=Path, default=HERE.parents[2] / "datasets" / "CBCT_75um" / "Isa_caso00" / "Segmentation.seg.nrrd")
 a = ap.parse_args()
 sys.path.insert(0, str(HERE.parent))
 sys.path.insert(0, str(HERE.parents[2].parent / "2_UNet"))

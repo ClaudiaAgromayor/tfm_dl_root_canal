@@ -20,7 +20,7 @@ Estudio y validación de datos del dataset **Pulpy3D** (CBCT dental):
 - **Calidad del ground truth** de Pulpy3D: máscaras vacías, coherencia entre `gt_pulp_mandible` y `gt_instance`, molares 36/46.
 - **Segmentación manual (3D Slicer) vs ground truth**: DICE y HD95 del diente completo, de la zona de canales radiculares y del nervio alveolar inferior (IAN).
 
-El mapa completo (qué hace cada script, dónde guarda sus resultados y qué problemas se han corregido) está en **[ORGANIZACION.md](ORGANIZACION.md)**.
+El mapa detallado de ese análisis antiguo (`ORGANIZACION.md`) se eliminó el 2026-11-19 por ser legado de un enfoque descartado; sigue en el historial de git (`git show 7a775ad:1_Data_Validation/ORGANIZACION.md`). La documentación vigente está en `../docs/` (empieza por `../docs/GUIA.md`).
 
 ## Uso rápido
 

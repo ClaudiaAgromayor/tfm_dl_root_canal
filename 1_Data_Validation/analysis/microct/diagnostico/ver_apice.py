@@ -1,6 +1,6 @@
 """Cortes axiales ampliados desde el final de la máscara de un conducto hacia la punta de la raíz.
 
-Sirve para comprobar a ojo lo que dice RESUMEN_PROYECTO.md (apartado 3.4): hasta el final de la máscara el conducto está
+Sirve para comprobar a ojo lo que dice PROYECTO.md (apartado 3.4): hasta el final de la máscara el conducto está
 encerrado por dentina; ~0,06 mm más abajo el hueco se abre al exterior (foramen) y por debajo hay dentina maciza.
 
     python ver_apice.py --diente Diente_52 --raiz 1 --conducto 1 [--resultados results/microct] [--out salida.png]

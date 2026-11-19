@@ -1,6 +1,6 @@
 """Sección más grande del conducto por corte, y sensibilidad del orificio al umbral de área de `split_canal.py`.
 
-Reproduce lo que sustenta el criterio del orificio (RESUMEN_PROYECTO.md, apartado 3.5): en la raíz hay 3-4 secciones
+Reproduce lo que sustenta el criterio del orificio (PROYECTO.md, apartado 3.5): en la raíz hay 3-4 secciones
 pequeñas (la mayor ≤ ~1,15 mm2) y en la cámara se funden en una grande; y cuánto se mueve el orificio al cambiar
 `--area-camara-mm2` (1,25 ... 3,0 mm2).
 

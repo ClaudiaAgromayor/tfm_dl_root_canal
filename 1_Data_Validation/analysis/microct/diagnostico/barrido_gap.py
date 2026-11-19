@@ -1,6 +1,6 @@
 """Barrido de la holgura en z (`--gap-mm` de preprocess_microct.py): volumen y nº de componentes de conducto.
 
-Reproduce el barrido de RESUMEN_PROYECTO.md (apartado 3.3): con gap = 0 el conducto del diente 51 a 16 µm se parte en
+Reproduce el barrido de PROYECTO.md (apartado 3.3): con gap = 0 el conducto del diente 51 a 16 µm se parte en
 trozos y el filtro de largo mínimo tira los cortos; con 0,13 mm sale 1 componente de ~23 mm3, igual que a 32 µm.
 
     python barrido_gap.py --downsample 2 1 --gaps 0 0.065 0.13 0.2 0.3 0.5 [--dientes 35 51 52] [--min-piece-mm3 0.005]

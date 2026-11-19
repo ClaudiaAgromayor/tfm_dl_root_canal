@@ -1,5 +1,5 @@
 # Rangos del azar de simulate_cbct.py. Cada [mín, máx] se sortea de forma uniforme en cada parche.
-# Los rangos parten de la calibración con el CBCT de Isa (results/cbct_calibration/Isa_caso01/calibration.json),
+# Los rangos parten de la calibración con el CBCT de Isa (results/cbct_calibration/Isa_caso00/calibration.json),
 # se ensanchan a propósito (la idea es no aprenderse un escáner concreto, y solo hay UN CBCT real para calibrar) y
 # sus CENTROS se retocaron después para que la comprobación del simulador (simulate_cbct.py --check --center)
 # coincidiera con Isa: no son siempre los valores medidos (cada comentario dice cuál es el caso).

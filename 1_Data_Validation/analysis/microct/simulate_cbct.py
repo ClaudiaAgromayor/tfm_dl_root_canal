@@ -23,7 +23,7 @@ Orden de los pasos (cada valor aleatorio sale de los rangos de simulate_cbct_con
 Uso:
     python simulate_cbct.py results/microct/Diente_35 results/microct/Diente_51 --n 8 --seed 0 \
         --out results/sim_cbct --figs 4 --real-cbct <cbct.nrrd> --real-seg <seg.nrrd>
-    python simulate_cbct.py results/microct/Diente_35 --check --calibration results/cbct_calibration/Isa_caso01/calibration.json
+    python simulate_cbct.py results/microct/Diente_35 --check --calibration results/cbct_calibration/Isa_caso00/calibration.json
 
 El mismo código sirve para generar al vuelo en un dataloader: `Simulator(cfg).patch(tooth, rng)`.
 Con GPU (RTX 5080) `patch()` tarda ~0,5 s por parche de 128³ (medido; 87 s en CPU); el bucle de esta línea de

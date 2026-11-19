@@ -1,6 +1,6 @@
 # diagnostico/
 
-Scripts que reproducen los números del análisis (`docs/RESUMEN_PROYECTO.md`) y las pruebas del simulador. Todos:
+Scripts que reproducen los números del análisis (`docs/PROYECTO.md`) y las pruebas del simulador. Todos:
 
 - se ejecutan desde cualquier directorio (las rutas por defecto cuelgan de `1_Data_Validation/`: `results/`, `datasets/`);
 - aceptan `--help`; los parámetros que importan se pasan por línea de comandos;

@@ -11,6 +11,7 @@ Deep-learning pipeline to support endodontic planning: from a clinical cone-beam
 - [Overview](#overview)
 - [Approach](#approach)
 - [Repository structure](#repository-structure)
+- [Documentation](#documentation)
 - [Data](#data)
 - [Getting started](#getting-started)
 - [Current status](#current-status)
@@ -28,7 +29,7 @@ The goal is to segment the root canals of the lower first molars (36/46) automat
 
 ## Approach
 
-Public data sets are not used. Labels come from µCT and the network learns on CBCT-like images:
+Public CBCT data sets are not used to learn the canals (their voxels are 4× coarser than 75 µm; they could only help to locate the tooth, see `docs/PROYECTO.md` §8). Labels come from µCT and the network learns on CBCT-like images:
 
 1. **Labels from µCT.** Each µCT volume is intensity-normalised and its canal is obtained by thresholding.
 2. **Simulated CBCT.** Each µCT is degraded to look like a 75 µm CBCT (resolution, blur, noise, contrast). Since the simulated image is derived from the µCT, **the label is already aligned and no registration is needed**.
@@ -48,9 +49,13 @@ Public data sets are not used. Labels come from µCT and the network learns on C
 ```
 .
 ├── 1_Data_Validation/
-│   └── analysis/microct/     µCT preprocessing (normalisation + canal thresholding)
+│   ├── analysis/microct/     µCT preprocessing, canal/chamber split, CBCT simulator, diagnostics
+│   │   └── medidas/          canal measurements: centreline, length, curvature, angles, diameters
+│   ├── analysis/cbct_real/   script that orders and renames the real CBCT volumes
 │   └── analysis/...          earlier analysis of the Pulpy3D data set (legacy, see below)
-├── 2_UNet/                   training framework (UNet, Attention UNet, ...)
+├── 2_UNet/                   training framework (UNet, Attention UNet, ...) and the new simulated-CBCT training
+├── docs/                     documentation (Spanish): GUIA, PROYECTO, MEDICION, LITERATURA
+├── CLAUDE.md                 working rules and project state for Claude Code
 ├── .gitignore
 └── README.md
 ```
@@ -70,6 +75,20 @@ Public data sets are not used. Labels come from µCT and the network learns on C
 `calibrate_cbct.py` measures a real CBCT (grey levels, noise, edge blur) and `simulate_cbct.py` turns a labelled µCT into random 75 µm CBCT-like patches with aligned soft/binary labels, using the ranges in `simulate_cbct_config.yaml`.
 
 `split_canal.py` separates the canal (orifice to apex, the training label) from the pulp chamber and crown cavities, and measures where the canal ends relative to the root tip. `export_slicer.py` writes cropped 32 µm NRRD files (image + masks) for review in 3D Slicer.
+
+`medidas/medir_conductos.py` computes, for each canal of a tooth, the centreline (cost-minimising path from apex to orifice, re-centred on the centroids of the cross-sections perpendicular to it), arc length and chord, curvature, angles and diameters (equivalent, major/minor by angular sweep, inscribed sphere, width/thickness). It is validated with artificial canals of known geometry (`validar_conducto_artificial.py`).
+
+## Documentation
+
+All in Spanish, in [`docs/`](docs/). Each fact lives in a single document:
+
+| Document | What it is for |
+| --- | --- |
+| [`docs/GUIA.md`](docs/GUIA.md) | **User manual**: the problem in five lines, data flow, folder map, every script and how to run it, output files, how to repeat everything with a new tooth, FAQ, glossary. **Start here.** |
+| [`docs/PROYECTO.md`](docs/PROYECTO.md) | **Technical notebook**: every step done and why, numbers, findings, limits, intended final use (whole CBCT → canals of tooth 36/46 only), what is missing, open questions, change log. |
+| [`docs/MEDICION.md`](docs/MEDICION.md) | **How length, curvature, angles and diameters are measured**, explained from scratch with figures and code; validation error; results on the 3 µCT; what is left to measure. |
+| [`docs/LITERATURA.md`](docs/LITERATURA.md) | Summary of the 10 papers reviewed and what can be reused. |
+| [`CLAUDE.md`](CLAUDE.md) | Working rules and one-page project state for Claude Code. |
 
 ### [`2_UNet/`](2_UNet/) — Segmentation training
 
@@ -113,7 +132,7 @@ python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validatio
 python 1_Data_Validation/analysis/microct/preprocess_microct.py 1_Data_Validation/datasets/MicroCT/Diente_35 --downsample 2
 ```
 
-The script refuses to overwrite a result folder that already has separated labels (`canal_solo_conducto.npy`, from `split_canal.py`) or that was computed at another resolution, unless `--force` is passed. After it, run `split_canal.py` on the result folder (see `docs/RESUMEN_PROYECTO.md`).
+The script refuses to overwrite a result folder that already has separated labels (`canal_solo_conducto.npy`, from `split_canal.py`) or that was computed at another resolution, unless `--force` is passed. After it, run `split_canal.py` on the result folder (see `docs/GUIA.md`, section 6).
 
 ## Current status
 
@@ -122,9 +141,10 @@ The script refuses to overwrite a result folder that already has separated label
 - [ ] Review the masks against an expert segmentation (none available yet)
 - [x] Canal labels at the full µCT resolution (16 µm), stable between 32 and 16 µm (to be reviewed in 3D Slicer)
 - [x] CBCT simulator at 75 µm, calibrated on one real CBCT (`analysis/microct/calibrate_cbct.py`, `simulate_cbct.py`)
-- [ ] Adapt the training framework to the simulated data and train
-- [ ] Evaluate on real CBCT
-- [ ] Geometric measurements (length, curvature, volume, diameter)
+- [x] Geometric measurements on the µCT canals (length, curvature, angles, diameters), validated with artificial canals
+- [x] Training scaffolding for the simulated data (assembly tests only, no real training yet)
+- [ ] Simulator with neighbouring teeth, bone and artefacts; tooth localisation (36/46) so that only that tooth's canals are segmented
+- [ ] Train and evaluate on real CBCT; measurements on the predicted canals
 
 ## References and acknowledgements
 

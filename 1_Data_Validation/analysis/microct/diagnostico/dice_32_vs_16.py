@@ -1,6 +1,6 @@
 """Estabilidad del conducto entre resoluciones: volumen, componentes y Dice entre la máscara de 16 µm y la de 32 µm.
 
-Reproduce results/microct/resumen_etapa1.json (RESUMEN_PROYECTO.md, apartado 3.3), salvo las columnas "antes de los filtros".
+Reproduce results/microct/resumen_etapa1.json (PROYECTO.md, apartado 3.3), salvo las columnas "antes de los filtros".
 
     python dice_32_vs_16.py --r16 results/microct --r32 results/microct_32um [--mascara canal.npy] [--out salida.json]
 

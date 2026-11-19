@@ -5,7 +5,7 @@
     python comparar_resultados.py json <a.json> <b.json>                                      # igualdad de dos json
     python comparar_resultados.py calib <nuevo/calibration.json> <guardado/calibration.json>
 
-Uso típico (RESUMEN_PROYECTO.md, apéndice A):
+Uso típico (PROYECTO.md, apéndice A):
     python preprocess_microct.py <datasets/MicroCT/Diente_52> --downsample 1 --out <tmp>
     python comparar_resultados.py pre <tmp>/Diente_52 results/microct/Diente_52
 """

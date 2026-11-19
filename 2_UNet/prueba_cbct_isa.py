@@ -41,10 +41,10 @@ from dataloader.SimCBCT import normalize_patch  # noqa: E402  (misma función qu
 from metrics_canal import dice, hd95  # noqa: E402
 from models.CanalUNet3D import CanalUNet3D  # noqa: E402
 
-DATA = ROOT / "1_Data_Validation" / "datasets" / "CBCT_75um" / "Isa_caso01"
+DATA = ROOT / "1_Data_Validation" / "datasets" / "CBCT_75um" / "Isa_caso00"
 ap = argparse.ArgumentParser()
 ap.add_argument("--checkpoint", type=Path, required=True)
-ap.add_argument("--cbct", type=Path, default=DATA / "1 3D CBCT Image Set.nrrd")
+ap.add_argument("--cbct", type=Path, default=DATA / "CBCT.nrrd")
 ap.add_argument("--seg", type=Path, default=DATA / "Segmentation.seg.nrrd")
 ap.add_argument("--out", type=Path, default=ROOT / "1_Data_Validation" / "results" / "prueba_cbct_isa")
 ap.add_argument("--margen-mm", type=float, default=3.0)
